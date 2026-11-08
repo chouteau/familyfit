@@ -1,0 +1,63 @@
+@page "/programmes"
+@attribute [Authorize]
+@inherits FamilyPage
+@inject AiProgramService Ai
+<PageTitle>Les programmes · FamilyFit</PageTitle>
+<div class="page-heading"><div><h1>Le bon programme pour chacun.</h1><p>Des séances adaptées au profil et au matériel, toujours validées avant de démarrer.</p></div>@if (Actor?.IsAdmin == true) { <button class="button primary" @onclick="NewProgram"><Icon Name="plus" />Préparer une semaine</button> }</div>
+@if (Error != null) { <div class="notice error" role="alert">@Error</div> } @if (Message != null) { <div class="notice success" role="status">@Message</div> }
+@if (Actor?.IsAdmin == true && _editor != null)
+{
+    <section class="panel editor-panel program-editor"><div class="section-heading"><h2>@(_editor.Id == null ? "Un nouveau brouillon" : "Ajuster le brouillon")</h2><span class="info-chip orange">Validation requise</span></div>
+        <EditForm Model="_editor" OnValidSubmit="Save" FormName="program-form"><DataAnnotationsValidator /><ValidationSummary /><fieldset disabled="@Busy"><div class="form-grid">
+            <label>Membre<InputSelect @bind-Value="_editor.MemberId" @bind-Value:after="ApplyMember" disabled="@(_editor.Id != null)">@foreach (var member in Data.Members) { <option value="@member.Id">@member.Nickname</option> }</InputSelect></label>
+            <label>Semaine commençant le lundi<InputDate @bind-Value="_editor.WeekStart" @bind-Value:after="UpdateDates" /></label>
+            <label>Titre du programme<InputText @bind-Value="_editor.Title" /><ValidationMessage For="() => _editor.Title" /></label>
+        </div><div class="ai-preparation"><div><h3>Un coup de pouce pour préparer la semaine ?</h3><p>@(Ai.IsConfigured ? "L’IA propose un brouillon à relire et ajuster. Tu gardes la décision de publication." : "La génération IA est indisponible. Tu peux composer le programme ci-dessous.")</p></div><label>Lieu pour la proposition<InputSelect @bind-Value="_aiLocation"><option value="">Choisir un lieu</option>@foreach (var location in MemberLocations) { <option value="@location.Id">@location.Name</option> }</InputSelect></label><button class="button orange" type="button" @onclick="Generate" disabled="@(!Ai.IsConfigured || _aiLocation == null || Busy)"><Icon Name="sparkle" />@(Busy ? "Préparation…" : "Proposer avec l’IA")</button></div>
+        <div class="draft-days">@foreach (var day in _editor.Days)
+        {
+            <article class="draft-day"><div class="draft-day-heading"><h3>@day.Date.ToString("dddd d MMMM", French)</h3><label class="check-option"><InputCheckbox @bind-Value="day.IsRest" />Jour de repos</label></div>
+            @if (!day.IsRest)
+            {
+                <div class="form-grid"><label>Nom de la séance<InputText @bind-Value="day.Title" /></label><label>Lieu<InputSelect @bind-Value="day.LocationId"><option value="">Choisir un lieu</option>@foreach (var location in MemberLocations) { <option value="@location.Id">@location.Name</option> }</InputSelect></label><label>Durée (minutes)<InputNumber @bind-Value="day.DurationMinutes" /></label></div>
+                <div class="draft-exercises">@foreach (var item in day.Exercises) { var exercise = Data.Exercises.FirstOrDefault(x => x.Id == item.ExerciseId); <div class="draft-exercise"><strong>@(exercise?.Name ?? item.ExerciseId)</strong><label>Séries<InputNumber @bind-Value="item.Sets" /></label><label>@(exercise?.TargetType == "repetitions" ? "Répétitions" : "Secondes")<InputNumber @bind-Value="item.Target" /></label><label>Repos (s)<InputNumber @bind-Value="item.RestSeconds" /></label><button type="button" class="icon-button" aria-label="@($"Retirer {exercise?.Name}")" @onclick="() => day.Exercises.Remove(item)"><Icon Name="close" Size="18" /></button></div> }</div>
+                <div class="add-exercise"><InputSelect @bind-Value="day.NewExerciseId" aria-label="Exercice à ajouter"><option value="">Choisir un exercice compatible</option>@foreach (var exercise in AvailableExercises(day)) { <option value="@exercise.Id">@exercise.Name</option> }</InputSelect><button class="button secondary small" type="button" @onclick="() => AddExercise(day)" disabled="@(string.IsNullOrEmpty(day.NewExerciseId))"><Icon Name="plus" Size="17" />Ajouter</button></div>
+            }
+            else { <p class="rest-line"><Icon Name="rest" />Une journée pour récupérer.</p> }</article>
+        }</div></fieldset><div class="form-actions"><button class="button primary" type="submit" disabled="@Busy">Enregistrer le brouillon</button><button class="button secondary" type="button" @onclick="() => _editor = null" disabled="@Busy">Annuler</button><span class="muted">L’enregistrement ne publie pas le programme.</span></div></EditForm>
+    </section>
+}
+<div class="program-list">@foreach (var program in Data.Programs.OrderByDescending(x => x.WeekStart).ThenBy(x => x.State))
+{
+    var member = Data.Members.First(x => x.Id == program.MemberId);
+    <article class="panel program-card"><div class="section-heading"><div class="member-card-heading"><Avatar Member="member" /><div><h2>@program.Title</h2><p>@member.Nickname · semaine du @program.WeekStart.ToString("d MMMM yyyy", French) · version @program.Version</p></div></div><span class="info-chip @(program.State == "published" ? "green" : program.State == "draft" ? "orange" : "")">@(program.State == "published" ? "Publié" : program.State == "draft" ? "Brouillon" : "Archivé")</span></div>
+        <div class="program-week-preview">@foreach (var day in program.Days.OrderBy(x => x.Date)) { <div class="@(day.IsRest ? "preview-rest" : "")"><strong>@day.Date.ToString("ddd d", French)</strong><span>@day.Title</span><small>@(day.IsRest ? "Repos" : $"{day.Exercises.Count} exercices · {day.DurationMinutes} min")</small></div> }</div>
+        <div class="card-actions">@if (Actor!.IsAdmin && program.State == "draft") { <button class="button secondary small" @onclick="() => Edit(program)">Ajuster</button><button class="button primary small" @onclick="() => Publish(program.Id)" disabled="@Busy"><Icon Name="check" Size="17" />Valider et publier</button> } else if (Actor!.IsAdmin) { <button class="button secondary small" @onclick="() => Copy(program)">Créer une nouvelle version</button> }<a class="text-link" href="@($"planning/{member.Id}")">Voir le planning<Icon Name="arrow" Size="16" /></a></div>
+    </article>
+}</div>
+@if (!Loading && Data.Programs.Count == 0) { <div class="empty-state panel"><Icon Name="program" Size="48" /><h2>La prochaine étape commence ici.</h2><p>@(Actor!.IsAdmin ? "Ajoute un lieu et son matériel, puis prépare le premier programme." : "L’administrateur prépare ton programme. Il apparaîtra ici après validation.")</p></div> }
+@code {
+    private ProgramEditor? _editor;
+    private Guid? _aiLocation;
+    private IEnumerable<Location> MemberLocations => Data.Locations.Where(x => x.MemberId == _editor?.MemberId);
+    private void NewProgram() { _editor = new() { MemberId = Actor.MemberId, WeekStart = FamilyCalendar.Monday(Today) }; ApplyMember(); Error = Message = null; }
+    private void ApplyMember()
+    {
+        if (_editor == null) return;
+        var member = Data.Members.First(x => x.Id == _editor.MemberId); var days = FamilyCalendar.Split(member.TrainingDays).Select(int.Parse).ToHashSet();
+        _aiLocation = MemberLocations.FirstOrDefault()?.Id;
+        _editor.Days = Enumerable.Range(0, 7).Select(i => new DayDraft { Date = _editor.WeekStart.AddDays(i), IsRest = !days.Contains((int)_editor.WeekStart.AddDays(i).DayOfWeek), LocationId = _aiLocation, DurationMinutes = member.SessionMinutes }).ToList();
+    }
+    private void UpdateDates() { if (_editor != null) for (var i = 0; i < _editor.Days.Count; i++) _editor.Days[i].Date = _editor.WeekStart.AddDays(i); }
+    private IEnumerable<Exercise> AvailableExercises(DayDraft day)
+    {
+        var location = Data.Locations.FirstOrDefault(x => x.Id == day.LocationId); if (location == null || _editor == null) return [];
+        var equipment = FamilyCalendar.Split(location.EquipmentIds).ToHashSet(); var member = Data.Members.First(x => x.Id == _editor.MemberId); var excluded = FamilyCalendar.Split(member.ExcludedExerciseIds).ToHashSet();
+        return Data.Exercises.Where(x => equipment.Contains(x.EquipmentId) && !excluded.Contains(x.Id) && day.Exercises.All(p => p.ExerciseId != x.Id));
+    }
+    private void AddExercise(DayDraft day) { var exercise = AvailableExercises(day).FirstOrDefault(x => x.Id == day.NewExerciseId); if (exercise == null) return; day.Exercises.Add(new() { ExerciseId = exercise.Id, Target = exercise.TargetType == "time" ? 40 : 12 }); day.NewExerciseId = ""; }
+    private void Edit(WorkoutProgram p) { _editor = new() { Id = p.Id, MemberId = p.MemberId, Title = p.Title, WeekStart = p.WeekStart, Days = p.Days.OrderBy(x => x.Date).Select(d => new DayDraft { Date = d.Date, Title = d.Title, LocationId = d.LocationId, DurationMinutes = d.DurationMinutes, IsRest = d.IsRest, Exercises = d.Exercises.Select(e => new ExerciseDraft { ExerciseId = e.ExerciseId, Sets = e.Sets, Target = e.Target, RestSeconds = e.RestSeconds }).ToList() }).ToList() }; _aiLocation = MemberLocations.FirstOrDefault()?.Id; Error = Message = null; }
+    private void Copy(WorkoutProgram p) { Edit(p); _editor!.Id = null; Message = "Nouvelle version préparée. Le programme publié reste inchangé jusqu’à ta prochaine validation."; }
+    private async Task Save() { if (_editor == null || Busy) return; Busy = true; try { if (await Accept(await Mediator.SaveProgram(User, _editor.Id, _editor.Input(), Cancellation), "Brouillon enregistré. Relis-le puis valide sa publication.")) _editor = null; } finally { Busy = false; } }
+    private async Task Publish(Guid id) { if (Busy) return; Busy = true; try { await Accept(await Mediator.PublishProgram(User, id, Cancellation), "Programme publié. Il sera téléchargé à la prochaine synchronisation du mobile."); } finally { Busy = false; } }
+    private async Task Generate() { if (_editor == null || _aiLocation == null || Busy) return; Busy = true; try { var result = await Mediator.GenerateProgram(User, new(_editor.MemberId, _aiLocation.Value, _editor.WeekStart), Cancellation); if (await Accept(result, "Proposition IA enregistrée en brouillon. Vérifie chaque séance avant publication.")) Edit(result.Value!); } finally { Busy = false; } }
+}

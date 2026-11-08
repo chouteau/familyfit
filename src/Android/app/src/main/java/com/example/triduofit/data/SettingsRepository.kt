@@ -103,16 +103,19 @@ class SettingsRepository(context: Context) {
     }
 
     fun getUserStreak(): Int {
-        return prefs.getInt(KEY_USER_STREAK, 3) // Valeur initiale motivante
+        return prefs.getInt(KEY_USER_STREAK, 0)
     }
 
     fun incrementStreak() {
-        val current = getUserStreak()
-        prefs.edit().putInt(KEY_USER_STREAK, current + 1).apply()
+        val today = java.time.LocalDate.now(java.time.ZoneId.of("Europe/Paris"))
+        val previous = prefs.getString("last_completed_date", null)?.let { runCatching { java.time.LocalDate.parse(it) }.getOrNull() }
+        if (previous == today) return
+        val current = if (previous == today.minusDays(1)) getUserStreak() + 1 else 1
+        prefs.edit().putInt(KEY_USER_STREAK, current).putString("last_completed_date", today.toString()).apply()
     }
 
     fun getUserXp(): Int {
-        return prefs.getInt(KEY_USER_XP, 240)
+        return prefs.getInt(KEY_USER_XP, 0)
     }
 
     fun addXp(amount: Int) {

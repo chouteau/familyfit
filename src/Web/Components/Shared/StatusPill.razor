@@ -1,0 +1,10 @@
+<span class="status status-@Status @(Compact ? "status-compact" : "")" title="@Label">
+    <Icon Name="@Symbol" Size="@(Compact ? 17 : 16)" />
+    <span class="@(Compact ? "sr-only" : "")">@Label</span>
+</span>
+@code {
+    [Parameter] public string Status { get; set; } = "unplanned";
+    [Parameter] public bool Compact { get; set; }
+    public string Label => Status switch { "completed" => "Terminée", "partial" => "Partielle", "abandoned" => "Abandonnée", "missed" => "Non réalisée", "rest" => "Repos", "todo" => "À faire", "upcoming" => "À venir", "in_progress" => "En cours", _ => "Non planifiée" };
+    private string Symbol => Status switch { "completed" => "check", "partial" => "partial", "rest" => "rest", "todo" or "upcoming" or "in_progress" => "calendar", "abandoned" or "missed" => "close", _ => "clock" };
+}

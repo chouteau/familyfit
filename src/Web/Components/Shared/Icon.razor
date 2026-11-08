@@ -1,0 +1,32 @@
+<svg class="icon @Class" width="@Size" height="@Size" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">@((MarkupString)Path)</svg>
+@code {
+    [Parameter] public string Name { get; set; } = "check";
+    [Parameter] public string Class { get; set; } = "";
+    [Parameter] public int Size { get; set; } = 22;
+    private string Path => Name switch {
+        "home" => "<path d='m3 10 9-7 9 7v10H15v-7H9v7H3Z'/>",
+        "calendar" => "<rect x='3' y='5' width='18' height='16' rx='3'/><path d='M7 3v4m10-4v4M3 11h18'/>",
+        "members" => "<circle cx='9' cy='7' r='3'/><path d='M3 21v-3a6 6 0 0 1 12 0v3m3-17a3 3 0 0 1 0 6m1 4a5 5 0 0 1 3 5v2'/>",
+        "equipment" => "<path d='M7 9h10M7 15h10M3 8v8m4-11v14M17 5v14m4-11v8'/>",
+        "program" => "<path d='m12 3 10 5-10 5L2 8Zm-10 9 10 5 10-5M2 16l10 5 10-5'/>",
+        "phone" => "<rect x='6' y='2' width='12' height='20' rx='3'/><path d='M10 18h4'/>",
+        "check" => "<path d='m5 12 4 4L19 6'/>",
+        "partial" => "<circle cx='12' cy='12' r='9'/><path d='M12 3v9h9'/>",
+        "rest" => "<path d='M3 18h18M3 10v11m18-7v7M3 14h18M7 10h4v4H7Z'/><path d='m16 5 3-3h-3m1 6 3-3h-3'/>",
+        "clock" => "<circle cx='12' cy='12' r='9'/><path d='M12 7v5l3 2'/>",
+        "location" => "<path d='M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 1 1 16 0Z'/><circle cx='12' cy='10' r='2.5'/>",
+        "sync" => "<path d='M20 7v5h-5M4 17v-5h5'/><path d='M5 7a8 8 0 0 1 13-2l2 2M4 17l2 2a8 8 0 0 0 13-2'/>",
+        "chevron-left" => "<path d='m15 5-7 7 7 7'/>",
+        "chevron-right" => "<path d='m9 5 7 7-7 7'/>",
+        "arrow" => "<path d='M4 12h16m-6-6 6 6-6 6'/>",
+        "plus" => "<path d='M12 5v14M5 12h14'/>",
+        "close" => "<path d='m6 6 12 12M6 18 18 6'/>",
+        "logout" => "<path d='M9 3H4v18h5m5-16 7 7-7 7M9 12h12'/>",
+        "target" => "<circle cx='12' cy='12' r='9'/><circle cx='12' cy='12' r='5'/><path d='m12 12 8-8'/>",
+        "download" => "<path d='M12 3v12m-5-5 5 5 5-5M4 16v5h16v-5'/>",
+        "qr" => "<path d='M3 3h6v6H3Zm12 0h6v6h-6ZM3 15h6v6H3Zm12 0h3v3h-3Zm3 3h3v3h-3Zm3-6v3M12 3v3m0 6h3M3 12h3m6 6v3'/>",
+        "shield" => "<path d='m12 2 8 4v6c0 6-8 10-8 10S4 18 4 12V6Z'/><path d='m8 12 3 3 5-6'/>",
+        "sparkle" => "<path d='m12 3 2.5 6.5L21 12l-6.5 2.5L12 21l-2.5-6.5L3 12l6.5-2.5Z'/>",
+        _ => "<circle cx='12' cy='12' r='8'/>"
+    };
+}

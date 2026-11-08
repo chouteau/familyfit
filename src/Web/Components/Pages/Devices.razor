@@ -1,0 +1,14 @@
+@page "/appareils"
+@attribute [Authorize]
+@inherits FamilyPage
+<PageTitle>Les appareils · FamilyFit</PageTitle>
+<div class="page-heading"><div><h1>Les téléphones de l’équipe.</h1><p>Garde le contrôle des appareils autorisés à synchroniser et à ouvrir le site.</p></div></div>
+@if (Error != null) { <div class="notice error" role="alert">@Error</div> }
+<div class="panel device-list">@foreach (var device in _devices) { var member = Data.Members.FirstOrDefault(x => x.Id == device.MemberId); <article class="device-row"><span class="large-icon"><Icon Name="phone" Size="27" /></span><div><h2>@device.Name</h2><p>@member?.Nickname · associé le @TimeZoneInfo.ConvertTime(device.CreatedAtUtc, FamilyCalendar.Paris).ToString("d MMM yyyy", French)</p></div>@if (device.RevokedAtUtc != null) { <span class="info-chip">Révoqué</span> } else if (_confirm == device.Id) { <div class="confirm-actions"><span>Fermer aussi ses sessions web ?</span><button class="button danger small" @onclick="() => Revoke(device.Id)" disabled="@Busy">Confirmer la révocation</button><button class="button secondary small" @onclick="() => _confirm = null">Annuler</button></div> } else { <button class="button secondary small" @onclick="() => _confirm = device.Id">Révoquer</button> }</article> }</div>
+@code {
+    private List<DeviceView> _devices = [];
+    private Guid? _confirm;
+    protected override async Task OnInitializedAsync() { await base.OnInitializedAsync(); await LoadDevices(); }
+    private async Task LoadDevices() { var result = await Mediator.GetDevices(User, Cancellation); _devices = result.Value ?? []; Error = result.Error; }
+    private async Task Revoke(Guid id) { Busy = true; try { var result = await Mediator.RevokeDevice(User, id, Cancellation); Error = result.Error; _confirm = null; if (result.Success) await LoadDevices(); } finally { Busy = false; } }
+}

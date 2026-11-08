@@ -1,0 +1,43 @@
+name: familyfit
+services:
+  web:
+    image: familyfit:${FAMILYFIT_IMAGE_TAG:-local}
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    init: true
+    ports:
+      - "127.0.0.1:${FAMILYFIT_PORT:-5088}:8080"
+    environment:
+      FamilyFit__PublicUrl: ${FAMILYFIT_PUBLIC_URL:-https://fit.chouteau.info}
+      FamilyFit__Demo: "false"
+      FamilyFit__DataDirectory: /data
+      OpenAI__ApiKey: ${OPENAI_API_KEY:-}
+      OpenAI__Model: ${OPENAI_MODEL:-gpt-4.1-mini}
+      ReverseProxy__KnownProxies__0: ${FAMILYFIT_PROXY_IP:-172.30.84.1}
+    volumes:
+      - familyfit-data:/data
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    stop_grace_period: 30s
+    networks:
+      - familyfit
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+volumes:
+  familyfit-data:
+networks:
+  familyfit:
+    ipam:
+      config:
+        - subnet: ${FAMILYFIT_DOCKER_SUBNET:-172.30.84.0/24}
+          gateway: ${FAMILYFIT_DOCKER_GATEWAY:-172.30.84.1}

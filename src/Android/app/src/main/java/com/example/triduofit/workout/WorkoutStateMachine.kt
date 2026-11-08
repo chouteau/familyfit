@@ -15,6 +15,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import com.example.triduofit.family.WorkoutCheckpoint
+import android.os.SystemClock
 
 enum class StepState {
     WAITING_FOR_GO, // L'application attend le "GO" vocal de l'athlète installé sur son appareil
@@ -34,7 +36,9 @@ data class WorkoutUiState(
     val isTechnoPlaying: Boolean = false,
     val isListeningToVoice: Boolean = true,
     val voiceFeedbackMessage: String = "",
-    val lastVoiceCommandHeard: String = ""
+    val lastVoiceCommandHeard: String = "",
+    val completedIndices: List<Int> = emptyList(),
+    val skippedIndices: List<Int> = emptyList()
 )
 
 class WorkoutStateMachine(
@@ -42,14 +46,14 @@ class WorkoutStateMachine(
     private val audioCoach: AudioCoachService,
     private val technoPlayer: TechnoBeatsPlayer,
     private val settingsRepository: SettingsRepository,
-    private val onWorkoutCompleted: () -> Unit
+    private val onWorkoutCompleted: (WorkoutCheckpoint) -> Unit
 ) {
     private val scope = CoroutineScope(Dispatchers.Main)
     private var timerJob: Job? = null
 
     private val _state = MutableStateFlow(
         WorkoutUiState(
-            sessionTitle = session.splitType.title,
+            sessionTitle = session.title,
             stepState = StepState.WAITING_FOR_GO,
             currentExerciseIndex = 0,
             totalExercises = session.exercises.size,
@@ -63,7 +67,7 @@ class WorkoutStateMachine(
 
     private var previousStepState = StepState.WAITING_FOR_GO
 
-    fun start() {
+    fun start(checkpoint: WorkoutCheckpoint? = null) {
         if (session.exercises.isEmpty()) {
             _state.value = _state.value.copy(stepState = StepState.COMPLETED)
             return
@@ -73,6 +77,14 @@ class WorkoutStateMachine(
             technoPlayer.bpm = settingsRepository.getTechnoBpm()
         }
 
+        if (checkpoint != null) {
+            val index = checkpoint.currentExerciseIndex.coerceIn(0, session.exercises.lastIndex)
+            _state.value = _state.value.copy(currentExerciseIndex = index, currentExercise = session.exercises[index], secondsRemaining = checkpoint.secondsRemaining, totalSecondsInStep = session.exercises[index].targetCount,
+                completedIndices = checkpoint.completedIndices, skippedIndices = checkpoint.skippedIndices,
+                stepState = if (checkpoint.stepState == "COMPLETED") StepState.COMPLETED else if (checkpoint.stepState == "WAITING_FOR_GO") StepState.WAITING_FOR_GO else StepState.PAUSED)
+            if (_state.value.stepState == StepState.COMPLETED) onWorkoutCompleted(progress()) else audioCoach.speak("Ta séance est conservée. Dis GO quand tu es prêt à reprendre.")
+            return
+        }
         // Attend calmement le GO pour le premier atelier
         prepareAtelier(0, isFirstAtelier = true)
     }
@@ -180,6 +192,7 @@ class WorkoutStateMachine(
     }
 
     private fun onExerciseFinished(exerciseIndex: Int) {
+        _state.value = _state.value.copy(completedIndices = (_state.value.completedIndices + exerciseIndex).distinct())
         val nextIndex = exerciseIndex + 1
         technoPlayer.setDucking(true)
 
@@ -203,12 +216,13 @@ class WorkoutStateMachine(
     ) {
         timerJob?.cancel()
         timerJob = scope.launch {
-            var remaining = totalSeconds
-            while (remaining > 0 && isActive) {
-                _state.value = _state.value.copy(secondsRemaining = remaining)
-                onTick?.invoke(remaining)
-                delay(1000)
-                remaining--
+            val deadline = SystemClock.elapsedRealtime() + totalSeconds * 1000L
+            var previousRemaining = -1
+            while (isActive) {
+                val remaining = ((deadline - SystemClock.elapsedRealtime() + 999) / 1000).coerceAtLeast(0).toInt()
+                if (remaining <= 0) break
+                if (remaining != previousRemaining) { _state.value = _state.value.copy(secondsRemaining = remaining); onTick?.invoke(remaining); previousRemaining = remaining }
+                delay(200)
             }
             if (isActive) {
                 _state.value = _state.value.copy(secondsRemaining = 0)
@@ -290,6 +304,7 @@ class WorkoutStateMachine(
             audioCoach.speak("Reprise !")
             val duration = _state.value.secondsRemaining
             val exercise = _state.value.currentExercise ?: return
+            if (exercise.targetType == com.example.triduofit.model.TargetType.REPETITIONS) return
 
             runCountdown(duration, onTick = { remaining ->
                 if (remaining == exercise.durationSeconds / 2) {
@@ -305,6 +320,7 @@ class WorkoutStateMachine(
 
     fun skipToNext() {
         timerJob?.cancel()
+        _state.value = _state.value.copy(skippedIndices = (_state.value.skippedIndices + _state.value.currentExerciseIndex).distinct())
         val nextIndex = _state.value.currentExerciseIndex + 1
         if (nextIndex < session.exercises.size) {
             prepareAtelier(nextIndex, isFirstAtelier = false)
@@ -319,10 +335,9 @@ class WorkoutStateMachine(
     }
 
     private fun completeWorkout() {
+        if (_state.value.stepState == StepState.COMPLETED) return
         timerJob?.cancel()
         technoPlayer.stop()
-        settingsRepository.incrementStreak()
-        settingsRepository.addXp(60)
 
         _state.value = _state.value.copy(
             stepState = StepState.COMPLETED,
@@ -330,8 +345,10 @@ class WorkoutStateMachine(
         )
 
         audioCoach.speak("Félicitations champion ! Séance terminée. Ton renforcement musculaire est validé pour ton triathlon !")
-        onWorkoutCompleted()
+        onWorkoutCompleted(progress())
     }
+
+    fun progress() = WorkoutCheckpoint(_state.value.currentExerciseIndex, _state.value.secondsRemaining, _state.value.stepState.name, _state.value.completedIndices, _state.value.skippedIndices)
 
     fun toggleTechnoMusic() {
         val currentlyPlaying = _state.value.isTechnoPlaying

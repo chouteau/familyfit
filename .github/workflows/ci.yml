@@ -1,0 +1,133 @@
+name: Validate FamilyFit
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: validation-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  web:
+    name: Web, SQLite and Docker
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
+        with:
+          global-json-file: global.json
+      - name: Restore and test
+        run: |
+          dotnet restore FamilyFit.sln
+          dotnet test FamilyFit.sln --no-restore --configuration Release --logger trx --results-directory "$RUNNER_TEMP/test-results"
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - name: Build the production image
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          load: true
+          tags: familyfit:ci
+          cache-from: type=gha,scope=familyfit-web
+          cache-to: type=gha,mode=max,scope=familyfit-web
+      - name: Verify the production container
+        run: |
+          set -euo pipefail
+          trap 'docker rm -f familyfit-ci >/dev/null 2>&1 || true; docker volume rm familyfit-ci-data >/dev/null 2>&1 || true' EXIT
+          docker run --detach --name familyfit-ci --read-only --tmpfs /tmp:rw,size=67108864 --cap-drop ALL --security-opt no-new-privileges --publish 127.0.0.1:5088:8080 --volume familyfit-ci-data:/data familyfit:ci
+          curl --fail --retry 20 --retry-connrefused --retry-delay 2 http://127.0.0.1:5088/health
+          test "$(curl --silent --output /dev/null --write-out '%{http_code}' http://127.0.0.1:5088/api/v1/family)" = 401
+          test "$(curl --silent --output /dev/null --write-out '%{http_code}' http://127.0.0.1:5088/demo)" = 404
+      - name: Test reports
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: web-test-results
+          path: ${{ runner.temp }}/test-results
+          if-no-files-found: ignore
+          retention-days: 7
+
+  iphone:
+    name: iPhone simulator build and tests
+    runs-on: macos-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Select an installed iPhone simulator
+        run: |
+          set -euo pipefail
+          xcodebuild -version
+          xcrun simctl list devices available --json > "$RUNNER_TEMP/simulators.json"
+          device_id=$(python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); print(next(x["udid"] for group in d["devices"].values() for x in group if x["name"].startswith("iPhone") and x.get("isAvailable",False)))' "$RUNNER_TEMP/simulators.json")
+          printf 'FAMILYFIT_SIMULATOR_ID=%s\n' "$device_id" >> "$GITHUB_ENV"
+      - name: Compile and run XCTest without signing
+        working-directory: src/iOS
+        run: |
+          set -euo pipefail
+          xcodebuild -project FamilyFit.xcodeproj -scheme FamilyFit -configuration Debug -destination "platform=iOS Simulator,id=$FAMILYFIT_SIMULATOR_ID" -derivedDataPath "$RUNNER_TEMP/FamilyFitDerivedData" -resultBundlePath "$RUNNER_TEMP/FamilyFitTests.xcresult" CODE_SIGNING_ALLOWED=NO test
+      - name: Xcode test results
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: iphone-test-results
+          path: ${{ runner.temp }}/FamilyFitTests.xcresult
+          if-no-files-found: ignore
+          retention-days: 7
+
+  publish:
+    name: Publish the validated web image
+    needs: web
+    if: github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Image metadata
+        id: meta
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
+        with:
+          images: ghcr.io/chouteau/familyfit
+          tags: |
+            type=sha,format=long
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=semver,pattern={{version}}
+      - name: Publish
+        id: image
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=familyfit-web
+          cache-to: type=gha,mode=max,scope=familyfit-web
+          provenance: mode=max
+          sbom: true
+      - name: Record the published digest
+        env:
+          IMAGE_DIGEST: ${{ steps.image.outputs.digest }}
+        run: |
+          printf 'Image prête : `ghcr.io/chouteau/familyfit@%s`\n' "$IMAGE_DIGEST" >> "$GITHUB_STEP_SUMMARY"

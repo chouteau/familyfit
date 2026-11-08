@@ -2,6 +2,7 @@ plugins {
   alias(libs.plugins.android.application)
   alias(libs.plugins.compose.compiler)
   alias(libs.plugins.kotlin.serialization)
+  id("com.google.devtools.ksp") version "2.3.13"
 }
 
 android {
@@ -11,8 +12,8 @@ android {
         applicationId = "com.example.familiyfit"
         minSdk = 26
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 2
+        versionName = "2.0"
     }
 
     buildTypes {
@@ -44,6 +45,10 @@ kotlin {
 }
 
 dependencies {
+  implementation("androidx.room:room-runtime:2.8.5")
+  implementation("androidx.room:room-ktx:2.8.5")
+  ksp("androidx.room:room-compiler:2.8.5")
+  implementation("com.journeyapps:zxing-android-embedded:4.3.0")
   val composeBom = platform(libs.androidx.compose.bom)
   implementation(composeBom)
   androidTestImplementation(composeBom)
@@ -88,3 +93,5 @@ dependencies {
   implementation(libs.kotlinx.serialization.json)
   implementation(libs.androidx.security.crypto)
 }
+
+ksp { arg("room.schemaLocation", "$projectDir/schemas") }

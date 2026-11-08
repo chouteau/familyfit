@@ -4,6 +4,10 @@ import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
+import android.content.Intent
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import kotlinx.coroutines.flow.MutableStateFlow
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -17,6 +21,8 @@ import com.example.triduofit.notification.NotificationScheduler
 import com.example.triduofit.theme.TriDuofitTheme
 
 class MainActivity : ComponentActivity() {
+    private val incomingLink = MutableStateFlow<String?>(null)
+    override fun onNewIntent(intent: Intent) { super.onNewIntent(intent); setIntent(intent); incomingLink.value = intent.data?.toString() }
 
     private val requestNotificationPermissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
@@ -27,6 +33,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        incomingLink.value = intent?.data?.toString()
 
         // 1. Initialiser le canal de notification et programmer le rappel de 9h00
         NotificationScheduler.createNotificationChannel(this)
@@ -46,7 +53,8 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    MainNavigation()
+                    val link by incomingLink.collectAsState()
+                    MainNavigation(link) { incomingLink.value = null }
                 }
             }
         }

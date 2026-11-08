@@ -43,6 +43,7 @@ import com.example.triduofit.ui.components.MascotView
 
 @Composable
 fun WorkoutSuccessScreen(
+    completed: Boolean = true,
     onContinue: () -> Unit
 ) {
     val context = LocalContext.current
@@ -70,14 +71,14 @@ fun WorkoutSuccessScreen(
             Spacer(modifier = Modifier.height(16.dp))
 
             Text(
-                text = "SÉANCE VALIDÉE !",
+                text = if (completed) "SÉANCE TERMINÉE !" else "SÉANCE ENREGISTRÉE",
                 fontSize = 28.sp,
                 fontWeight = FontWeight.Black,
                 color = DuoGreenDark,
                 letterSpacing = 1.sp
             )
             Text(
-                text = "Un pas de plus vers ton pic de forme en triathlon !",
+                text = if (completed) "Un pas de plus pour garder le rythme en famille !" else "Ton effort compte. Le suivi indiquera une séance partielle ou abandonnée.",
                 fontSize = 15.sp,
                 fontWeight = FontWeight.Bold,
                 color = DuoTextMuted,
@@ -131,7 +132,7 @@ fun WorkoutSuccessScreen(
                         Text("⚡", fontSize = 30.sp)
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
-                            text = "+60 XP",
+                            text = if (completed) "+60 XP" else "EFFORT CONSERVÉ",
                             fontWeight = FontWeight.Black,
                             fontSize = 18.sp,
                             color = DuoBlue
@@ -160,14 +161,14 @@ fun WorkoutSuccessScreen(
                     Spacer(modifier = Modifier.width(14.dp))
                     Column {
                         Text(
-                            text = "GARMIN CONNECT",
+                            text = "SUIVI FAMILIAL",
                             fontWeight = FontWeight.Black,
                             fontSize = 12.sp,
                             color = DuoBlueDark,
                             letterSpacing = 1.sp
                         )
                         Text(
-                            text = "Fichier d'activité .FIT généré (Renforcement Musculaire). Prêt pour synchronisation.",
+                            text = "Les résultats du programme familial sont conservés sur ce téléphone puis envoyés au site quand le réseau est disponible.",
                             fontSize = 13.sp,
                             color = DuoTextDark,
                             fontWeight = FontWeight.Bold,
