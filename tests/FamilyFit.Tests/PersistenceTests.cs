@@ -31,7 +31,7 @@ public sealed class PersistenceTests
     [Fact] public async Task Browser_Session_Expires_After_Twelve_Hours_Without_Expiring_The_Phone()
     {
         using var server = new FamilyServer(); var member = await server.AddMember(); var (phone, _) = await server.Phone(member); using var browser = server.Browser();
-        var challenge = await (await browser.PostAsync("/api/v1/auth/browser/challenges", null)).Content.ReadFromJsonAsync<JsonElement>();
+        var challenge = await server.Challenge(browser, member);
         await phone.PostAsJsonAsync("/api/v1/auth/browser/approve", new ApproveRequest(challenge.GetProperty("code").GetString()!)); await browser.PostAsync("/api/v1/auth/browser/consume", null);
         server.Clock.Now = server.Clock.Now.AddHours(13);
         Assert.Equal(HttpStatusCode.Unauthorized, (await browser.GetAsync("/api/v1/me")).StatusCode);
@@ -42,7 +42,7 @@ public sealed class PersistenceTests
         using var server = new FamilyServer(); var member = await server.AddMember(); var (phone, _) = await server.Phone(member); using var browser = server.Browser();
         var invitation = await server.Invite(member.Id);
         Assert.Equal(HttpStatusCode.BadRequest, (await phone.PostAsJsonAsync("/api/v1/auth/browser/approve", new ApproveRequest(invitation.Code))).StatusCode);
-        var challenge = await (await browser.PostAsync("/api/v1/auth/browser/challenges", null)).Content.ReadFromJsonAsync<JsonElement>();
+        var challenge = await server.Challenge(browser, member);
         Assert.Equal(HttpStatusCode.BadRequest, (await browser.PostAsJsonAsync("/api/v1/auth/enroll", new EnrollRequest(challenge.GetProperty("code").GetString()!, "Android"))).StatusCode);
     }
 }

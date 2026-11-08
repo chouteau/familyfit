@@ -13,5 +13,12 @@ TRAEFIK_PROXY_IP=
 TRAEFIK_HTTP_ENTRYPOINT=web
 TRAEFIK_HTTPS_ENTRYPOINT=websecure
 
-# Optional: AI generation is otherwise disabled; never commit a real key.
-OPENAI_API_KEY=
+# Optional: dedicated MCP bearer key, at least 32 characters. Empty disables MCP.
+# Generate with: openssl rand -hex 32. Never commit the actual value.
+MCP_API_KEY=
+# true allows reads only; false allows the existing administrator's domain rights.
+MCP_READ_ONLY=false
+
+# Initial administrator web connection only; at least 16 characters.
+# Generate with: openssl rand -hex 16. Remove after successful setup.
+FAMILYFIT_BOOTSTRAP_CODE=

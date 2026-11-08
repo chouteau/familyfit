@@ -9,7 +9,11 @@ public sealed class CreateBrowserChallengeRequestHandler(AuthService auth) : IRe
 {
     public async Task<Outcome<BrowserChallengeWithSecret>> Handle(CreateBrowserChallengeRequest request, CancellationToken ct)
     {
-        var (grant, secret) = await auth.CreateChallengeAsync(ct);
-        return Outcome<BrowserChallengeWithSecret>.Ok(new(grant, secret));
+        try
+        {
+            var (grant, secret) = await auth.CreateChallengeAsync(request.LinkSecret, request.BrowserSecret, ct);
+            return Outcome<BrowserChallengeWithSecret>.Ok(new(grant, secret));
+        }
+        catch (DomainException error) { return Outcome<BrowserChallengeWithSecret>.Fail(error.Message, error.Status); }
     }
 }

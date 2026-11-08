@@ -1,19 +1,44 @@
 @page "/login"
 @attribute [AllowAnonymous]
 @inject IJSRuntime JS
+@inject IMediator Mediator
+@inject IHttpContextAccessor HttpContext
 @implements IAsyncDisposable
+@if (_preview != null)
+{
 <PageTitle>Connexion avec ton mobile · FamilyFit</PageTitle>
 <main class="login-page"><a class="brand login-brand" href="/"><img src="assets/mascot.png" alt="" /><span>Family<span class="brand-fit">Fit</span></span></a>
-    <section class="login-panel panel" data-login><div class="login-intro"><span class="large-icon"><Icon Name="phone" Size="34" /></span><h1>Ton mobile ouvre la porte.</h1><p>Scanne ce QR code avec l’application FamilyFit, puis confirme la connexion sur ton téléphone.</p></div>
+    <section class="login-panel panel" data-login><div class="login-intro"><span class="large-icon"><Icon Name="phone" Size="34" /></span><h1>Bonjour @_preview.Nickname.</h1><p>Ce lien est réservé à ton profil. Scanne ce QR code avec ton application FamilyFit, puis confirme la connexion sur ton téléphone.</p></div>
         <div class="login-qr" id="login-qr" role="img" aria-label="QR code de connexion"><span class="loading">Préparation du QR code…</span></div>
         <p class="muted">Tu peux aussi saisir ce code dans l’application :</p><button class="login-code" id="login-code" aria-label="Copier le code de connexion" @onclick="CopyCode">—</button>
         <p id="login-status" class="login-status" role="status" aria-live="polite">En attente de ton application…</p><button class="button secondary" @onclick="Refresh"><Icon Name="sync" Size="18" />Nouveau code</button>
-        <p class="invitation-note">Première utilisation ? Demande ton invitation personnelle à l’administrateur familial.</p>
+        <p class="invitation-note">Seul le téléphone associé à @_preview.Nickname peut confirmer. Ce lien expire cinq minutes après sa création.</p>
     </section><p class="login-reassurance"><Icon Name="shield" Size="18" />Aucun mot de passe à retenir. Ton téléphone reste sous ton contrôle.</p>
 </main>
+}
+else if (_bootstrap?.Available == true)
+{
+    <BootstrapLogin NeedsProfile="_bootstrap.NeedsProfile" />
+}
 @code {
-    protected override async Task OnAfterRenderAsync(bool firstRender) { if (firstRender) await Refresh(); }
-    private Task Refresh() => JS.InvokeVoidAsync("familyFit.login.start").AsTask();
+    private BootstrapStatus? _bootstrap;
+    private MemberLoginPreview? _preview;
+    private string? _linkSecret;
+    private string? _browserSecret;
+    private bool _start;
+    protected override async Task OnInitializedAsync() { var cookie = HttpContext.HttpContext?.Request.Cookies["FamilyFit.Challenge"]?.Split(':', 2); _browserSecret = cookie?.Length == 2 ? cookie[1] : null; _bootstrap = (await Mediator.GetBootstrapStatus()).Value; }
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            _linkSecret = await JS.InvokeAsync<string?>("familyFit.login.takeLinkSecret");
+            if (string.IsNullOrEmpty(_linkSecret)) return;
+            _preview = (await Mediator.PreviewMemberLoginLink(_linkSecret, _browserSecret)).Value;
+            if (_preview != null) { _start = true; StateHasChanged(); }
+        }
+        else if (_start) { _start = false; await Refresh(); }
+    }
+    private Task Refresh() => JS.InvokeVoidAsync("familyFit.login.start", _linkSecret).AsTask();
     private Task CopyCode() => JS.InvokeVoidAsync("familyFit.login.copy").AsTask();
-    public async ValueTask DisposeAsync() { try { await JS.InvokeVoidAsync("familyFit.login.stop"); } catch (JSDisconnectedException) { } }
+    public async ValueTask DisposeAsync() { try { await JS.InvokeVoidAsync("familyFit.login.stop"); } catch (JSDisconnectedException) { } catch (InvalidOperationException) { } }
 }

@@ -17,13 +17,63 @@ namespace FamilyFit.Core.Data.Migrations
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.14");
 
+            modelBuilder.Entity("FamilyFit.Contracts.Models.Authentication.AdminBootstrap", b =>
+                {
+                    b.Property<int>("Id")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("CompletedAtUtc")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<Guid>("MemberId")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("MemberId");
+
+                    b.ToTable("AdminBootstraps");
+                });
+
+            modelBuilder.Entity("FamilyFit.Contracts.Models.Authentication.MemberLoginLink", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("BrowserSecretHash")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("ExpiresAtUtc")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<Guid>("MemberId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("TokenHash")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<long?>("UsedAtUtc")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("MemberId");
+
+                    b.HasIndex("TokenHash")
+                        .IsUnique();
+
+                    b.ToTable("MemberLoginLinks");
+                });
+
             modelBuilder.Entity("FamilyFit.Contracts.Models.BrowserSession", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("TEXT");
 
-                    b.Property<Guid>("DeviceId")
+                    b.Property<Guid?>("DeviceId")
                         .HasColumnType("TEXT");
 
                     b.Property<long>("ExpiresAtUtc")
@@ -190,8 +240,14 @@ namespace FamilyFit.Core.Data.Migrations
                         .IsRequired()
                         .HasColumnType("TEXT");
 
+                    b.Property<Guid?>("ExpectedMemberId")
+                        .HasColumnType("TEXT");
+
                     b.Property<long>("ExpiresAtUtc")
                         .HasColumnType("INTEGER");
+
+                    b.Property<Guid?>("MemberLoginLinkId")
+                        .HasColumnType("TEXT");
 
                     b.Property<long?>("UsedAtUtc")
                         .HasColumnType("INTEGER");
@@ -200,6 +256,8 @@ namespace FamilyFit.Core.Data.Migrations
 
                     b.HasIndex("CodeHash")
                         .IsUnique();
+
+                    b.HasIndex("MemberLoginLinkId");
 
                     b.ToTable("LoginChallenges");
                 });
@@ -405,13 +463,30 @@ namespace FamilyFit.Core.Data.Migrations
                     b.ToTable("Results");
                 });
 
+            modelBuilder.Entity("FamilyFit.Contracts.Models.Authentication.AdminBootstrap", b =>
+                {
+                    b.HasOne("FamilyFit.Contracts.Models.Member", null)
+                        .WithMany()
+                        .HasForeignKey("MemberId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("FamilyFit.Contracts.Models.Authentication.MemberLoginLink", b =>
+                {
+                    b.HasOne("FamilyFit.Contracts.Models.Member", null)
+                        .WithMany()
+                        .HasForeignKey("MemberId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("FamilyFit.Contracts.Models.BrowserSession", b =>
                 {
                     b.HasOne("FamilyFit.Contracts.Models.Device", null)
                         .WithMany()
                         .HasForeignKey("DeviceId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Restrict);
                 });
 
             modelBuilder.Entity("FamilyFit.Contracts.Models.Device", b =>
@@ -439,6 +514,14 @@ namespace FamilyFit.Core.Data.Migrations
                         .HasForeignKey("MemberId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("FamilyFit.Contracts.Models.LoginChallenge", b =>
+                {
+                    b.HasOne("FamilyFit.Contracts.Models.Authentication.MemberLoginLink", null)
+                        .WithMany()
+                        .HasForeignKey("MemberLoginLinkId")
+                        .OnDelete(DeleteBehavior.Restrict);
                 });
 
             modelBuilder.Entity("FamilyFit.Contracts.Models.ProgramDay", b =>

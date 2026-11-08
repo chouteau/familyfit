@@ -48,8 +48,9 @@ Variables d’exploitation :
 | `FAMILYFIT_IMAGE_TAG` | Version d’image à conserver pour permettre un retour arrière |
 | `FAMILYFIT_PROXY_IP` | Adresse source exacte du proxy vue par le conteneur, défaut passerelle 172.30.84.1 |
 | `FAMILYFIT_DOCKER_SUBNET` / `FAMILYFIT_DOCKER_GATEWAY` | Réseau à adapter en cas de conflit, en cohérence avec l’IP du proxy |
-| `OPENAI_API_KEY` | Secret optionnel, injecté uniquement dans l’environnement du serveur |
-| `OPENAI_MODEL` | Modèle de génération, défaut gpt-4.1-mini |
+| `MCP_API_KEY` | Clé Bearer dédiée au MCP, 32 à 512 caractères ; vide désactive l’accès |
+| `MCP_READ_ONLY` | `true` pour interdire les modifications MCP ; défaut `false` |
+| `FAMILYFIT_BOOTSTRAP_CODE` | Première connexion administrateur, code aléatoire de 16 à 128 caractères à usage unique |
 
 Protéger tout fichier d’environnement local avec des droits 600 et ne pas l’ajouter à Git. Éviter `docker compose config` sans `--quiet` lorsqu’un secret est configuré : cette commande peut afficher l’environnement résolu.
 
@@ -65,14 +66,32 @@ curl --fail http://127.0.0.1:5088/health
 
 Adapter le modèle `deploy/nginx.conf.example` au proxy déjà en place. Tester sa configuration avant rechargement. Les en-têtes Host, X-Forwarded-Proto et WebSocket sont nécessaires. L’adresse du proxy doit être explicitement reconnue par l’application ; ne pas faire confiance à toutes les adresses entrantes.
 
-Après mise en place de HTTPS :
+Pour une installation neuve, avant le premier démarrage, renseigner dans `.env` un code dédié généré avec `openssl rand -hex 16` :
+
+```dotenv
+FAMILYFIT_BOOTSTRAP_CODE=<code-initial-distinct-de-la-clé-MCP>
+```
+
+Après mise en place de HTTPS, ouvrir le site, saisir ce code et compléter le pseudo, l’âge et le poids du premier administrateur. Si son profil existe déjà sans aucune session web antérieure, seul le code est demandé. La première session administrateur dure douze heures et ne requiert pas de téléphone déjà activé. Dans « Membres », inviter ensuite son mobile et créer les liens web familiaux.
+
+Retirer `FAMILYFIT_BOOTSTRAP_CODE` du `.env` puis recréer le conteneur. L’état d’utilisation est enregistré dans SQLite : changer le code ou redémarrer le conteneur ne réactive pas cette entrée. Le code initial est également refusé si une session web existait déjà avant cette mise à jour. Sans initialisation disponible ni lien personnel, le site public reste vide.
+
+Pour retrouver l’accès web d’une installation déjà utilisée si toutes les sessions ont expiré :
 
 ```sh
-docker compose exec -T web dotnet FamilyFit.Web.dll --bootstrap --nickname Marc --age 58 --weight 68
+docker compose exec -T web dotnet FamilyFit.Web.dll --login-link --nickname Marc
 docker compose cp web:/data/private ./private-invitation
 ```
 
-Adapter âge/poids à la réalité. Récupérer l’invitation localement par SSH, activer le mobile administrateur et supprimer la copie locale après usage. Ce répertoire n’est jamais servi par HTTP. Ajouter ensuite les membres et leurs lieux depuis le site, puis publier leurs programmes.
+Ouvrir localement le fichier `login-….html` indiqué, suivre son lien et confirmer le QR/code depuis le téléphone de Marc. Le lien expire cinq minutes après création. Supprimer la copie après usage. Le paramètre `--member-id <GUID>` évite toute ambiguïté de pseudo. Ensuite, les liens se génèrent dans « Membres » depuis une session administrateur. Si toutes les sessions web expirent, cette commande permet de recréer un lien sans réactiver le téléphone. Le suivi familial reste partagé après connexion.
+
+## Accès MCP
+
+Dans le `.env` associé au Compose, définir `MCP_API_KEY` avec une valeur aléatoire de 256 bits (`openssl rand -hex 32`), puis recréer le service web. Cette clé est transmise à l’environnement du conteneur par les trois variantes Compose, jamais dans les labels Traefik. La clé identifie l’unique administrateur de la base et ne donne aucun accès aux invitations ou aux validations de connexion mobile. Sans clé, `/mcp` répond 401. `MCP_READ_ONLY=true` conserve les consultations et interdit les modifications.
+
+Le client utilise `Authorization: Bearer …` sur `https://fit.chouteau.info/mcp`. Les cookies web et les autorisations mobiles ne sont pas acceptés. Protéger le `.env`, ne pas journaliser les en-têtes d’autorisation ni le contenu des outils (profils, poids, résultats). Pour révoquer l’accès, vider ou changer `MCP_API_KEY` puis recréer le conteneur ; mettre aussi à jour la variable locale du client. Aucune table de clés d’agent ni page de gestion des clés n’est créée. La configuration Codex et les outils sont documentés dans le README et `docs/api.md`.
+
+Les migrations `PrivateMemberLoginLinks` et `InitialAdminCode` ajoutent les liens personnels, leur liaison aux demandes de connexion et l’état d’initialisation à usage unique. Une session initiale peut exister sans téléphone associé ; elle reste révocable par déconnexion ou récupération opérateur. Les anciennes demandes publiques expirent ; les sessions web et téléphones déjà activés restent valides. Effectuer la sauvegarde habituelle avant la mise à jour.
 
 ## Sauvegardes et mises à jour
 

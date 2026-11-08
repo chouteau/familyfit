@@ -16,6 +16,9 @@ public abstract class AuthorizedHandler<TRequest, TResponse>(AuthService auth, I
         try
         {
             var actor = await auth.RequireActorAsync(request.User, request.AdminOnly, cancellationToken);
+            if (actor.AgentId != null && request is IHumanOnlyRequest) return Outcome<TResponse>.Fail("Cette opération exige un accès humain par le mobile ou le site.", 403);
+            if (actor.AgentId != null && !actor.CanWrite && request is IChangesFamily)
+                return Outcome<TResponse>.Fail("Ce serveur MCP est configuré en lecture seule.", 403);
             var result = await Execute(request, actor, cancellationToken);
             if (result.Success && request is IChangesFamily) await mediator.Publish(new FamilyChangedNotification(), cancellationToken);
             return result;

@@ -26,7 +26,7 @@ public sealed class AuthenticationTests
     [Fact] public async Task Browser_Login_Requires_Mobile_Approval_And_Original_Browser_Secret()
     {
         using var server = new FamilyServer(); var member = await server.AddMember(); var (phone, _) = await server.Phone(member); using var browser = server.Browser(); using var attacker = server.Browser();
-        var challenge = await (await browser.PostAsync("/api/v1/auth/browser/challenges", null)).Content.ReadFromJsonAsync<JsonElement>();
+        var challenge = await server.Challenge(browser, member);
         Assert.False(challenge.TryGetProperty("browserSecret", out _));
         var pending = await (await browser.PostAsync("/api/v1/auth/browser/consume", null)).Content.ReadFromJsonAsync<JsonElement>(); Assert.Equal("pending", pending.GetProperty("state").GetString());
         Assert.Equal(HttpStatusCode.OK, (await phone.PostAsJsonAsync("/api/v1/auth/browser/approve", new ApproveRequest(challenge.GetProperty("code").GetString()!))).StatusCode);
@@ -38,7 +38,7 @@ public sealed class AuthenticationTests
     [Fact] public async Task Revocation_Invalidates_Both_Phone_And_Approved_Browser()
     {
         using var server = new FamilyServer(); var admin = await server.AddMember(true, "Admin"); var user = await server.AddMember(); var (adminPhone, _) = await server.Phone(admin); var (phone, grant) = await server.Phone(user); using var browser = server.Browser();
-        var challenge = await (await browser.PostAsync("/api/v1/auth/browser/challenges", null)).Content.ReadFromJsonAsync<JsonElement>();
+        var challenge = await server.Challenge(browser, user);
         await phone.PostAsJsonAsync("/api/v1/auth/browser/approve", new ApproveRequest(challenge.GetProperty("code").GetString()!)); await browser.PostAsync("/api/v1/auth/browser/consume", null);
         Assert.Equal(HttpStatusCode.OK, (await adminPhone.PostAsync($"/api/v1/devices/{grant.DeviceId}/revoke", null)).StatusCode);
         Assert.Equal(HttpStatusCode.Unauthorized, (await phone.GetAsync("/api/v1/sync")).StatusCode);
@@ -46,11 +46,11 @@ public sealed class AuthenticationTests
     }
     [Fact] public async Task Browser_Code_Expires_And_CrossOrigin_Creation_Is_Forbidden()
     {
-        using var server = new FamilyServer(); using var browser = server.Browser();
-        await browser.PostAsync("/api/v1/auth/browser/challenges", null); server.Clock.Now = server.Clock.Now.AddMinutes(6);
+        using var server = new FamilyServer(); var member = await server.AddMember(); using var browser = server.Browser();
+        await server.Challenge(browser, member); server.Clock.Now = server.Clock.Now.AddMinutes(6);
         var result = await (await browser.PostAsync("/api/v1/auth/browser/consume", null)).Content.ReadFromJsonAsync<JsonElement>(); Assert.Equal("expired", result.GetProperty("state").GetString());
         using var stranger = server.Browser(); stranger.DefaultRequestHeaders.Add("Origin", "https://untrusted.example");
-        Assert.Equal(HttpStatusCode.Forbidden, (await stranger.PostAsync("/api/v1/auth/browser/challenges", null)).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await stranger.PostAsJsonAsync("/api/v1/auth/browser/challenges", new FamilyFit.Contracts.Models.Authentication.BrowserChallengeInput("invalid"))).StatusCode);
     }
     [Fact] public async Task Production_Has_No_Demo_Login_And_Anonymous_Requests_Cannot_Read_Data()
     {

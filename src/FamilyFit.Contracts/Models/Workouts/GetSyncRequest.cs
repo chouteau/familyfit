@@ -4,4 +4,4 @@ using FamilyFit.Contracts.Models;
 
 namespace FamilyFit.Contracts.Models.Workouts;
 
-public sealed record GetSyncRequest(ClaimsPrincipal User) : IRequest<Outcome<SyncSnapshot>>, IAuthorizedRequest { public bool AdminOnly => false; }
+public sealed record GetSyncRequest(ClaimsPrincipal User) : IRequest<Outcome<SyncSnapshot>>, IAuthorizedRequest, IHumanOnlyRequest { public bool AdminOnly => false; }

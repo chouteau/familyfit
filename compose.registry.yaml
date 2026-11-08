@@ -11,8 +11,9 @@ services:
       FamilyFit__PublicUrl: ${FAMILYFIT_PUBLIC_URL:-https://fit.chouteau.info}
       FamilyFit__Demo: "false"
       FamilyFit__DataDirectory: /data
-      OpenAI__ApiKey: ${OPENAI_API_KEY:-}
-      OpenAI__Model: ${OPENAI_MODEL:-gpt-4.1-mini}
+      FAMILYFIT_BOOTSTRAP_CODE: ${FAMILYFIT_BOOTSTRAP_CODE:-}
+      MCP_API_KEY: ${MCP_API_KEY:-}
+      MCP_READ_ONLY: ${MCP_READ_ONLY:-false}
       ReverseProxy__KnownProxies__0: ${FAMILYFIT_PROXY_IP:-172.30.84.1}
     volumes:
       - familyfit-data:/data

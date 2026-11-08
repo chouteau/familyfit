@@ -5,8 +5,8 @@ Fitness familial : site central Blazor .NET 10, API ChannelMediator, SQLite et a
 ## Organisation
 
 - `src/FamilyFit.Contracts` : modèles et requêtes ChannelMediator.
-- `src/FamilyFit.Core` : handlers par domaine, validation, SQLite/EF Core, migrations et préparation IA.
-- `src/Web` : interface Blazor, connexion par QR/code et endpoints mobiles.
+- `src/FamilyFit.Core` : handlers par domaine, validation, SQLite/EF Core, migrations et authentification.
+- `src/Web` : interface Blazor, connexion personnelle par QR/code, endpoints mobiles et serveur MCP.
 - `src/Android` : application Kotlin/Compose existante, Room, scan QR et synchronisation.
 - `src/iOS` : application SwiftUI/SwiftData et projet Xcode partagé.
 - `tests/FamilyFit.Tests` : tests d’intégration avec de vraies bases SQLite isolées.
@@ -21,7 +21,7 @@ dotnet test FamilyFit.sln
 dotnet run --project src/Web --no-launch-profile --urls http://localhost:5088
 ```
 
-Sans invitation et mobile activé, le site affiche uniquement la connexion. La base est créée/migrée au premier démarrage dans `src/Web/data` ; ce dossier est exclu de Git.
+Sans session ni lien personnel valide, le site reste vide, sauf pendant l’initialisation administrateur configurée ci-dessous. La base est créée/migrée au premier démarrage dans `src/Web/data` ; ce dossier est exclu de Git.
 
 Pour explorer l’interface avec des données fictives, utiliser uniquement l’environnement Development :
 
@@ -36,21 +36,73 @@ Ouvrir `/demo`. Ce mode emploie `familyfit-demo.db`, distinct de la base réelle
 
 ## Connexion sans mot de passe
 
-L’administrateur crée les profils puis leurs invitations personnelles (QR ou code, dix minutes, usage unique). Chaque téléphone confirme le profil puis conserve son autorisation dans son stockage sécurisé. Pour ouvrir le site, scanner son QR ou saisir son code dans l’application et approuver le navigateur. Les sessions web expirent après douze heures ; révoquer le téléphone invalide aussi ses sessions web.
+L’administrateur crée les profils puis leurs invitations personnelles (QR ou code, dix minutes, usage unique). Chaque téléphone confirme le profil puis conserve son autorisation dans son stockage sécurisé. Dans « Membres », l’administrateur choisit « Créer un lien web » pour le membre concerné et lui transmet ce lien privé. Il expire cinq minutes après sa création et affiche uniquement la connexion liée à son pseudo. Seul un téléphone activé sur ce profil peut confirmer le QR/code. Après connexion, le suivi familial reste accessible.
 
-Créer le premier administrateur sur la machine du serveur, avec tes valeurs réelles :
+Le secret est dans le fragment `#secret=…` de l’URL, retiré de la barre d’adresse dès sa lecture ; il n’est pas envoyé dans les journaux HTTP du proxy. Le lien est lié au premier navigateur qui demande son code, puis consommé à la connexion. « Nouveau code » conserve la date d’expiration initiale. Les sessions web expirent après douze heures ; révoquer le téléphone invalide aussi ses sessions web.
+
+### Première connexion administrateur avec le `.env`
+
+Avant le premier démarrage en production, ajouter au `.env` situé à côté du Docker Compose un code aléatoire dédié (16 à 128 caractères), distinct de la clé MCP :
+
+```dotenv
+FAMILYFIT_BOOTSTRAP_CODE=<code-aléatoire-d-initialisation>
+MCP_API_KEY=<clé-dédiée-à-l-agent>
+MCP_READ_ONLY=false
+```
+
+Générer le code avec `openssl rand -hex 16`. Protéger le `.env` avec des droits 600 et ne pas le versionner. Les trois Compose transmettent `FAMILYFIT_BOOTSTRAP_CODE` au conteneur.
+
+1. Démarrer le service, puis ouvrir `https://fit.chouteau.info`.
+2. Saisir le code d’initialisation sur le site et renseigner le pseudo, l’âge et le poids du premier administrateur. Si son profil a déjà été créé par l’opérateur, seul le code est demandé.
+3. La session administrateur s’ouvre immédiatement, sans téléphone préalablement activé. Dans « Membres », utiliser « Inviter son mobile » pour activer son téléphone et préparer les liens web de la famille.
+4. Retirer `FAMILYFIT_BOOTSTRAP_CODE` du `.env`, puis recréer le service avec `docker compose -f compose.traefik.yaml up -d --no-build`.
+
+Le code est consommé une seule fois, avec un état persistant en SQLite. Changer le code ou redémarrer le conteneur ne permet pas de refaire l’initialisation. Une installation ayant déjà créé une session web ne peut pas utiliser ce mécanisme. Sans code valide configuré, aucun formulaire d’initialisation n’est affiché. La première session dure douze heures ; les connexions suivantes utilisent un lien personnel et le téléphone activé.
+
+### Commandes de récupération
+
+Pour une installation existante sans session web active, générer un lien de connexion depuis le serveur :
+
+```powershell
+dotnet run --project src/Web --no-launch-profile -- --login-link --nickname Marc
+```
+
+La commande indique le chemin d’un fichier HTML privé, à récupérer localement et ouvrir dans les cinq minutes, puis confirmer depuis le téléphone du même membre. `--member-id <GUID>` permet de sélectionner précisément un membre si plusieurs pseudos sont identiques. Ne pas publier ce fichier ni le versionner ; supprimer sa copie après usage. Les connexions courantes se préparent depuis « Membres ».
+
+Si le téléphone administrateur est perdu, `--recover` révoque ses anciens accès et prépare une nouvelle invitation mobile. L’ancienne commande opérateur `--bootstrap` reste disponible pour créer un administrateur hors du parcours web :
 
 ```powershell
 dotnet run --project src/Web --no-launch-profile -- --bootstrap --nickname Marc --age 58 --weight 68
 ```
 
-La commande indique seulement le chemin d’un fichier HTML privé. Récupérer ce fichier par SSH si nécessaire et ouvrir localement son QR/code. Il ne doit jamais être publié par le serveur web ni ajouté à Git. L’original est supprimé après activation ; supprimer également sa copie locale. La commande `--recover` révoque les anciens accès administrateurs et prépare une nouvelle invitation si le téléphone est perdu. Aucun mot de passe de secours n’est créé.
+Adapter les valeurs à la réalité et récupérer l’invitation privée indiquée pour activer le mobile. Aucun mot de passe de secours permanent n’est créé.
 
 ## Programmes et fonctionnement hors ligne
 
-Ajouter les lieux et leur matériel confirmé, compléter les objectifs/niveau/disponibilités puis composer un programme. La proposition IA est optionnelle et reste un brouillon à relire ; seul l’administrateur publie. Les programmes publiés sont immuables et les anciennes versions restent disponibles pour recevoir leurs résultats hors ligne.
+Ajouter les lieux et leur matériel confirmé, compléter les objectifs/niveau/disponibilités puis composer un programme manuellement ou avec un agent externe via MCP. Seul l’administrateur publie. Les programmes publiés sont immuables et les anciennes versions restent disponibles pour recevoir leurs résultats hors ligne. La génération IA intégrée au site a été retirée ; aucune clé OpenAI n’est nécessaire côté serveur. Les réglages vocaux Android existants sont conservés.
 
-Configurer le service IA uniquement côté serveur avec `OpenAI__ApiKey` et, si nécessaire, `OpenAI__Model` (défaut : `gpt-4.1-mini`). Ne pas mettre la clé dans les sources, les mobiles ou un fichier versionné. Sans clé, la composition manuelle et les entraînements restent disponibles.
+## Connecter un agent par MCP
+
+Le serveur Streamable HTTP est disponible sur `https://fit.chouteau.info/mcp`. Placer la clé dédiée dans le `.env` situé à côté du Docker Compose :
+
+```dotenv
+MCP_API_KEY=<clé-aléatoire-d-au-moins-32-caractères>
+MCP_READ_ONLY=false
+```
+
+Générer une valeur avec `openssl rand -hex 32`, protéger le `.env` avec des droits 600 et ne pas le versionner. Les trois variantes Compose transmettent ces variables au conteneur. Sans clé, l’accès MCP est désactivé. `MCP_READ_ONLY=true` interdit toutes les modifications. La clé correspond aux droits métier de l’unique administrateur existant ; elle ne peut ni inviter un téléphone ni approuver une connexion web. Après un changement de clé ou de mode, recréer le conteneur. La rotation de la clé révoque l’ancien accès.
+
+Sur la machine de l’agent, rendre la même valeur disponible dans la variable d’environnement `MCP_API_KEY`, puis configurer Codex :
+
+```toml
+[mcp_servers.familyfit]
+url = "https://fit.chouteau.info/mcp"
+bearer_token_env_var = "MCP_API_KEY"
+```
+
+Ou utiliser `codex mcp add familyfit --url https://fit.chouteau.info/mcp --bearer-token-env-var MCP_API_KEY`. Relancer Codex après modification de son environnement. La valeur du secret reste hors du fichier TOML. Voir la [configuration MCP officielle de Codex](https://learn.chatgpt.com/docs/extend/mcp?surface=cli).
+
+Les 18 outils couvrent identité, guide, tableau familial, profils, poids, lieux/matériel, exercices, planning, programmes et résultats. Les écritures passent par ChannelMediator et les mêmes validations que le site. La préparation d’un brouillon ne publie pas automatiquement de programme ; l’agent doit recevoir une demande explicite de publication et ne doit jamais inventer une séance réalisée. Catalogue et limites : [docs/api.md](docs/api.md).
 
 Les mobiles téléchargent programmes et médias, enregistrent la progression localement et conservent les résultats jusqu’à acquittement du serveur. Les synchronisations se font à l’ouverture, après une séance, manuellement et au retour du réseau lorsque l’application est active. Aucune exécution en arrière-plan app fermée n’est garantie. Le suivi distingue terminé, partiel, abandonné et repos ; les jours de repos sont exclus de l’objectif du jour. Les dates de planning suivent Europe/Paris.
 
@@ -91,6 +143,9 @@ chmod 600 .env
 | `TRAEFIK_HTTP_ENTRYPOINT` | Point d’entrée HTTP ; défaut `web` |
 | `TRAEFIK_HTTPS_ENTRYPOINT` | Point d’entrée HTTPS ; défaut `websecure` |
 | `FAMILYFIT_IMAGE_TAG` | Défaut `latest` ; utiliser un tag `sha-<commit complet>` pour figer une version |
+| `MCP_API_KEY` | Clé dédiée à l’agent ; vide désactive MCP |
+| `MCP_READ_ONLY` | `true` pour limiter le MCP à la lecture ; défaut `false` |
+| `FAMILYFIT_BOOTSTRAP_CODE` | Code à usage unique pour la première connexion administrateur ; retirer après initialisation |
 
 Le modèle laisse les trois premières valeurs vides : Compose demande de les renseigner avant de démarrer. Pour identifier le réseau et l’adresse du conteneur Traefik, utiliser `docker inspect NOM_DU_CONTENEUR_TRAEFIK --format '{{json .NetworkSettings.Networks}}'`. `TRAEFIK_PROXY_IP` permet à ASP.NET de reconnaître les en-têtes HTTPS du bon proxy ; si cette IP change, adapter la variable et recréer le conteneur FamilyFit.
 
@@ -103,14 +158,16 @@ docker compose -f compose.traefik.yaml ps
 
 Ouvrir ensuite `https://fit.chouteau.info`. Le volume `familyfit_familyfit-data` conserve SQLite, les clés de session et les sauvegardes ; ne pas le supprimer lors des mises à jour et garder le nom de projet `familyfit`. La configuration est prévue pour une seule instance web.
 
-Pour le premier administrateur, adapter les valeurs à la réalité :
+Pour la première installation, renseigner `FAMILYFIT_BOOTSTRAP_CODE` dans `.env` **avant** le démarrage, puis suivre la section « Première connexion administrateur » : saisir le code directement sur le site. Retirer ensuite la variable et recréer le conteneur. Aucun transfert de fichier par SSH n’est nécessaire pour cette initialisation.
+
+Sur une installation déjà utilisée, si aucune session web n’est encore active, récupérer un lien personnel par la commande opérateur :
 
 ```sh
-docker compose -f compose.traefik.yaml exec -T web dotnet FamilyFit.Web.dll --bootstrap --nickname Marc --age 58 --weight 68
+docker compose -f compose.traefik.yaml exec -T web dotnet FamilyFit.Web.dll --login-link --nickname Marc
 docker compose -f compose.traefik.yaml cp web:/data/private ./private-invitation
 ```
 
-Récupérer le fichier privé localement, scanner son QR/code avec l’application mobile puis supprimer la copie après activation. Le site s’ouvre ensuite par approbation depuis le téléphone, sans mot de passe.
+Ouvrir ce lien dans les cinq minutes et confirmer depuis le téléphone du même membre. Supprimer les copies privées après usage. Le site public reste vide sans lien ni session.
 
 Pour utiliser `deploy/backup.sh` avec cette variante : définir `FAMILYFIT_COMPOSE_FILE=compose.traefik.yaml`. Pour le timer fourni, adapter aussi son entrée `Environment=FAMILYFIT_COMPOSE_FILE=compose.traefik.yaml` dans le service systemd. Le `.env` et le tag d’image doivent rester dans le dossier du projet. Sauvegarder avant chaque changement de version.
 

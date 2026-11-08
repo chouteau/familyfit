@@ -133,6 +133,8 @@ public sealed class LoginChallenge
     [JsonIgnore] public string BrowserSecretHash { get; set; } = "";
     public DateTimeOffset ExpiresAtUtc { get; set; }
     public Guid? ApprovedDeviceId { get; set; }
+    public Guid? ExpectedMemberId { get; set; }
+    public Guid? MemberLoginLinkId { get; set; }
     public DateTimeOffset? UsedAtUtc { get; set; }
 }
 
@@ -140,7 +142,7 @@ public sealed class BrowserSession
 {
     public Guid Id { get; set; } = Guid.NewGuid();
     public Guid MemberId { get; set; }
-    public Guid DeviceId { get; set; }
+    public Guid? DeviceId { get; set; }
     public DateTimeOffset ExpiresAtUtc { get; set; }
     public DateTimeOffset? RevokedAtUtc { get; set; }
 }

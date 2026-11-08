@@ -3,7 +3,7 @@ using FamilyFit.Contracts.Models;
 
 namespace FamilyFit.Contracts;
 
-public sealed record Actor(Guid MemberId, bool IsAdmin, Guid DeviceId, Guid? SessionId = null);
+public sealed record Actor(Guid MemberId, bool IsAdmin, Guid DeviceId, Guid? SessionId = null, Guid? AgentId = null, bool CanWrite = true);
 public sealed record EnrollRequest([property: Required, StringLength(32)] string Code, [property: Required, StringLength(80)] string DeviceName);
 public sealed record DeviceGrant(string Token, Guid DeviceId, Member Member);
 public sealed record InvitationGrant(string Code, string QrPayload, DateTimeOffset ExpiresAtUtc);
@@ -13,7 +13,6 @@ public sealed record MemberInput(string Nickname, int Age, double WeightKg, stri
 public sealed record LocationInput(Guid MemberId, string Name, string[] EquipmentIds, long Revision = 1);
 public sealed record ProgramDayInput(DateOnly Date, string Title, Guid? LocationId, int DurationMinutes, bool IsRest, List<Prescription> Exercises);
 public sealed record ProgramInput(Guid MemberId, string Title, DateOnly WeekStart, List<ProgramDayInput> Days);
-public sealed record GenerateInput(Guid MemberId, Guid LocationId, DateOnly WeekStart);
 public sealed record WorkoutSubmission(Guid Id, Guid ProgramDayId, DateTimeOffset StartedAtUtc, DateTimeOffset FinishedAtUtc, List<ExercisePerformance> Exercises);
 public sealed record SessionExercise(string Id, string Name, string EquipmentId, string Muscle, string TargetType, string Instructions, string PostureTip, string? ImageUrl, string? VideoUrl, int Sets, int Target, int RestSeconds);
 public sealed record SessionDay(Guid Id, Guid ProgramId, DateOnly Date, string Title, Guid? LocationId, string LocationName, int DurationMinutes, bool IsRest, List<SessionExercise> Exercises);

@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using FamilyFit.Contracts.Models.Authentication;
 using FamilyFit.Contracts.Models;
 
 namespace FamilyFit.Core.Data;
@@ -20,15 +21,22 @@ public sealed class FamilyDb(DbContextOptions<FamilyDb> options) : DbContext(opt
     public DbSet<Invitation> Invitations => Set<Invitation>();
     public DbSet<LoginChallenge> LoginChallenges => Set<LoginChallenge>();
     public DbSet<BrowserSession> BrowserSessions => Set<BrowserSession>();
+    public DbSet<MemberLoginLink> MemberLoginLinks => Set<MemberLoginLink>();
+    public DbSet<AdminBootstrap> AdminBootstraps => Set<AdminBootstrap>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
         b.Entity<Member>().Property(x => x.Revision).IsConcurrencyToken();
+        b.Entity<AdminBootstrap>().Property(x => x.Id).ValueGeneratedNever();
+        b.Entity<AdminBootstrap>().HasOne<Member>().WithMany().HasForeignKey(x => x.MemberId).OnDelete(DeleteBehavior.Restrict);
         b.Entity<Location>().Property(x => x.Revision).IsConcurrencyToken();
         b.Entity<WorkoutProgram>().HasMany(x => x.Days).WithOne().HasForeignKey(x => x.ProgramId).OnDelete(DeleteBehavior.Cascade);
         b.Entity<WorkoutProgram>().HasIndex(x => new { x.MemberId, x.WeekStart, x.State });
         b.Entity<WorkoutResult>().HasIndex(x => new { x.MemberId, x.ProgramDayId });
         b.Entity<Device>().HasIndex(x => x.TokenHash).IsUnique();
+        b.Entity<MemberLoginLink>().HasIndex(x => x.TokenHash).IsUnique();
+        b.Entity<MemberLoginLink>().HasOne<Member>().WithMany().HasForeignKey(x => x.MemberId).OnDelete(DeleteBehavior.Restrict);
+        b.Entity<LoginChallenge>().HasOne<MemberLoginLink>().WithMany().HasForeignKey(x => x.MemberLoginLinkId).OnDelete(DeleteBehavior.Restrict);
         b.Entity<Invitation>().HasIndex(x => x.CodeHash).IsUnique();
         b.Entity<LoginChallenge>().HasIndex(x => x.CodeHash).IsUnique();
         b.Entity<Location>().HasOne<Member>().WithMany().HasForeignKey(x => x.MemberId).OnDelete(DeleteBehavior.Restrict);
