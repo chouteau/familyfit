@@ -11,8 +11,14 @@
 | Android | `assembleDebug`, `testDebugUnitTest`, `assembleDebugAndroidTest` réussis ; 4 tests unitaires réussis. APK debug généré, identifiant historique conservé. Les tests instrumentés Room sont compilés mais pas exécutés. |
 | Blazor dans Chromium | Création de membre, ajout d’un lieu, composition manuelle de sept jours, publication du programme et accès authentifié au schéma OpenAPI vérifiés dans la base de démonstration isolée. Aucune erreur JavaScript dans ces parcours. Données temporaires supprimées après vérification. |
 | Interface | Accueil et planning capturés à 1440 px et 390 px. Accueil mobile : largeur du document = 390 px ; calendrier défilant jusqu’au jour sélectionné. Relecture indépendante : les trois corrections demandées sont résolues, verdict `ship` limité à ces corrections. |
-| iOS | Neuf fichiers Swift analysés sans erreur de syntaxe par le parseur Swift ; structure du projet Xcode et ses deux cibles lues avec succès. Cela ne remplace pas une compilation par le SDK iOS. |
+| iOS | Compilation et exécution de 3 XCTest réussies avec Xcode 26.6 sur un simulateur iPhone du runner macOS GitHub, sans signature. Contrat JSON/séries, modèle SwiftData dans un nouveau contexte en mémoire et dates Europe/Paris vérifiés. Cela ne remplace pas les essais sur iPhone réel. |
 | Relecture technique | Les corrections de verrouillage Android, transaction de programme, séparation des caches iOS et isolation des résultats rejetés ont été relues indépendamment. |
+
+## Validation GitHub
+
+La [validation du commit de code 54b2e29](https://github.com/chouteau/familyfit/actions/runs/42490733846) est réussie : 22 tests .NET sur Linux, construction de l’image, contrôle du conteneur de production et 3 XCTest iPhone. Les erreurs d’import et d’initialisation détectées par Xcode ont été corrigées avant cette exécution réussie. Le workflow a été vérifié avec actionlint 1.7.12 et ses actions sont fixées à des SHA vérifiés.
+
+La [pull request n° 1](https://github.com/chouteau/familyfit/pull/1) reste en brouillon et n’est pas fusionnée. La publication GHCR est volontairement ignorée sur une pull request ; aucune image de cette branche n’a été publiée et aucun VPS n’a été modifié. Les sauvegardes avec `compose.registry.yaml` et le tag conservé dans `.env` ont fait l’objet d’une relecture indépendante et d’un contrôle de configuration Compose sans export interactif.
 
 ## Image et dépendances
 
@@ -32,7 +38,7 @@ Rapports bruts locaux exclus de Git : `src/Android/output/security/trivy-final.j
 
 ## Vérifications restantes
 
-- Compilation Xcode avec le SDK iOS, exécution des XCTest, signature Ad Hoc et essais sur iPhone 13 ou plus récent. Nécessitent le Mac et l’équipe Apple Developer ; aucune compilation iOS n’a été réalisée depuis Windows.
+- Signature Ad Hoc et essais sur iPhone 13 ou plus récent, notamment hors ligne et après fermeture forcée. La compilation et les XCTest ont été réalisés sur le Mac du runner GitHub ; l’accès SSH au Mac personnel reste à autoriser et l’équipe Apple Developer reste à configurer pour la distribution.
 - Tests Android instrumentés et parcours caméra, voix, mode avion, fermeture forcée/reprise sur un appareil ou émulateur. Aucun appareil n’était connecté lors de la validation.
 - Appel réel au service de génération IA : non exécuté sans clé configurée. Le fonctionnement manuel reste disponible et a été vérifié.
 - Déploiement sur le VPS, DNS/certificat de `fit.chouteau.info`, passage par le reverse proxy, distribution mobile et exercice de restauration sur l’installation réelle. Aucun déploiement externe n’a été effectué.

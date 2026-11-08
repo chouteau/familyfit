@@ -8,7 +8,7 @@
 
 **Tech Stack:** GitHub Actions, GHCR, Docker Compose, Xcode/SwiftUI.
 
-**Spec:** User correction on 2026-11-08: Mac is `marc@192.168.10.33`; site deployment goes through GitHub. Existing requirements are in `docs/implementation.md`.
+**Spec:** User correction on 2026-11-08: a personal Mac is accessible over SSH; site deployment goes through GitHub. Existing requirements are in `docs/implementation.md`.
 
 ## Global Constraints
 
@@ -28,8 +28,10 @@
 ## Tasks
 
 - [x] Inspect SSH access, repository remote and current workflows. Mac responds but public-key authentication is not yet authorized; request user setup.
-- [ ] Add pinned GitHub Actions for .NET/SQLite tests, Docker smoke checks and GHCR publishing; add independent unsigned iPhone simulator test job.
-- [ ] Provide registry-only Compose and deployment instructions; validate YAML and Compose without printing resolved secrets.
-- [ ] Publish the completed application and workflow on a review branch/PR, preserve unrelated files and observe CI.
-- [ ] Correct native compiler/test failures from an actual Xcode run, then update validation evidence.
-- [ ] Obtain an independent final technical review of this delivery change.
+- [x] Add pinned GitHub Actions for .NET/SQLite tests, Docker smoke checks and GHCR publishing; add independent unsigned iPhone simulator test job.
+- [x] Provide registry-only Compose and deployment instructions; validate YAML/actionlint and Compose without printing resolved secrets.
+- [x] Publish the completed application and workflow on a review branch/PR, preserve unrelated files and observe CI.
+- [x] Correct native compiler/test failures from an actual Xcode run, then update validation evidence. Run 42490733846 passed: 22 server tests and 3 XCTest.
+- [x] Obtain an independent final technical review of this delivery change; fix registry configuration for bootstrap and scheduled backups.
+- [ ] Authorize the PC's public SSH key on the personal Mac for signing/device work.
+- [ ] Connect the published image to the user's chosen VPS deployment tool after review and integration.

@@ -14,6 +14,7 @@ Private family dashboard and individual weekly planning faithful to the approved
 - [x] SwiftUI app source, secure enrollment, camera scanner, local coach, offline storage and sync.
 - [x] Docker, backup/recovery instructions, server/API tests, Android build and browser checks.
 - [ ] Compile/sign/test the iPhone app on the user's Mac and physical devices.
+- [x] Compile the iPhone app and run 3 XCTest on a GitHub macOS simulator runner.
 - [ ] Run Android instrumentation tests on a connected phone/emulator.
 - [ ] Deploy to the user's VPS, configure HTTPS and validate actual mobile-to-server flows.
 

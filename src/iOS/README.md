@@ -2,6 +2,8 @@
 
 Application native SwiftUI, SwiftData, AVFoundation et Speech. iOS 18 minimum ; cible de validation : iPhone 13 et plus récents. Aucune dépendance tierce ni clé de service à mettre dans l’application.
 
+Le workflow GitHub compile et exécute les tests sans signature sur un simulateur iPhone. Validation réussie le 8 novembre 2026 avec Xcode 26.6 : 3 XCTest, zéro échec ([exécution](https://github.com/chouteau/familyfit/actions/runs/42490733846)). La signature et les essais sur appareil réel restent à effectuer.
+
 ## Compilation sur Mac
 
 Ouvrir `FamilyFit.xcodeproj` dans Xcode 16 ou plus récent. Sélectionner le scheme partagé `FamilyFit`. Dans Signing & Capabilities, choisir ton équipe Apple Developer pour un appareil physique. Le bundle ID est `info.chouteau.familyfit`.
