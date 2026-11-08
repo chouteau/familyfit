@@ -1,0 +1,17 @@
+# Copy to .env beside compose.traefik.yaml, then fill the three empty values.
+COMPOSE_FILE=compose.traefik.yaml
+FAMILYFIT_IMAGE_TAG=latest
+FAMILYFIT_DOMAIN=fit.chouteau.info
+
+# Existing Docker network shared with your Traefik container.
+TRAEFIK_NETWORK=
+# Existing certificate resolver configured in Traefik.
+TRAEFIK_CERTRESOLVER=
+# Exact, preferably fixed IP of Traefik on that shared network.
+TRAEFIK_PROXY_IP=
+
+TRAEFIK_HTTP_ENTRYPOINT=web
+TRAEFIK_HTTPS_ENTRYPOINT=websecure
+
+# Optional: AI generation is otherwise disabled; never commit a real key.
+OPENAI_API_KEY=

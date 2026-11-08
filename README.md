@@ -69,6 +69,53 @@ Les tests de persistance Room dans `androidTest` nécessitent un émulateur ou u
 
 ## Docker et exploitation
 
+### Installer derrière Traefik
+
+Utiliser [compose.traefik.yaml](compose.traefik.yaml) avec le Traefik existant. Le fichier récupère l’image `ghcr.io/chouteau/familyfit`, route `fit.chouteau.info` en HTTPS vers le port interne 8080 et redirige HTTP vers HTTPS. Aucun port du service n’est publié sur l’hôte. Traefik doit utiliser son fournisseur Docker et partager un réseau avec FamilyFit ; le DNS du domaine doit pointer vers le serveur.
+
+Placer le Compose et [deploy/traefik.variables.example](deploy/traefik.variables.example) sur le serveur, dans un dossier dédié, puis préparer les variables :
+
+```sh
+umask 077
+# Première installation : conserver un éventuel .env existant.
+cp deploy/traefik.variables.example .env
+chmod 600 .env
+# Compléter .env avec les valeurs de votre installation Traefik.
+```
+
+| Variable | Valeur à renseigner |
+|---|---|
+| `TRAEFIK_NETWORK` | Nom exact du réseau Docker existant partagé avec Traefik |
+| `TRAEFIK_CERTRESOLVER` | Nom du résolveur TLS déjà configuré dans Traefik |
+| `TRAEFIK_PROXY_IP` | Adresse IP de Traefik sur ce réseau partagé, de préférence fixe |
+| `TRAEFIK_HTTP_ENTRYPOINT` | Point d’entrée HTTP ; défaut `web` |
+| `TRAEFIK_HTTPS_ENTRYPOINT` | Point d’entrée HTTPS ; défaut `websecure` |
+| `FAMILYFIT_IMAGE_TAG` | Défaut `latest` ; utiliser un tag `sha-<commit complet>` pour figer une version |
+
+Le modèle laisse les trois premières valeurs vides : Compose demande de les renseigner avant de démarrer. Pour identifier le réseau et l’adresse du conteneur Traefik, utiliser `docker inspect NOM_DU_CONTENEUR_TRAEFIK --format '{{json .NetworkSettings.Networks}}'`. `TRAEFIK_PROXY_IP` permet à ASP.NET de reconnaître les en-têtes HTTPS du bon proxy ; si cette IP change, adapter la variable et recréer le conteneur FamilyFit.
+
+```sh
+docker compose -f compose.traefik.yaml config --quiet
+docker compose -f compose.traefik.yaml pull
+docker compose -f compose.traefik.yaml up -d --no-build
+docker compose -f compose.traefik.yaml ps
+```
+
+Ouvrir ensuite `https://fit.chouteau.info`. Le volume `familyfit_familyfit-data` conserve SQLite, les clés de session et les sauvegardes ; ne pas le supprimer lors des mises à jour et garder le nom de projet `familyfit`. La configuration est prévue pour une seule instance web.
+
+Pour le premier administrateur, adapter les valeurs à la réalité :
+
+```sh
+docker compose -f compose.traefik.yaml exec -T web dotnet FamilyFit.Web.dll --bootstrap --nickname Marc --age 58 --weight 68
+docker compose -f compose.traefik.yaml cp web:/data/private ./private-invitation
+```
+
+Récupérer le fichier privé localement, scanner son QR/code avec l’application mobile puis supprimer la copie après activation. Le site s’ouvre ensuite par approbation depuis le téléphone, sans mot de passe.
+
+Pour utiliser `deploy/backup.sh` avec cette variante : définir `FAMILYFIT_COMPOSE_FILE=compose.traefik.yaml`. Pour le timer fourni, adapter aussi son entrée `Environment=FAMILYFIT_COMPOSE_FILE=compose.traefik.yaml` dans le service systemd. Le `.env` et le tag d’image doivent rester dans le dossier du projet. Sauvegarder avant chaque changement de version.
+
+Les labels suivent la [configuration Docker officielle de Traefik](https://doc.traefik.io/traefik/reference/routing-configuration/other-providers/docker/). Le résolveur TLS et le réseau restent ceux de votre proxy existant.
+
 Le workflow GitHub valide le web et son conteneur, puis publie l’image `ghcr.io/chouteau/familyfit` depuis `main` ou un tag de version. `compose.registry.yaml` permet de consommer une version publiée sans compilation sur le VPS. Le job iPhone compile et teste séparément sur un simulateur macOS, sans signature. Voir `docs/deployment.md` pour les tags, droits GHCR et étapes de mise en service ; la publication d’une image ne déploie pas automatiquement le VPS.
 
 Voir `docs/deployment.md`. Les données SQLite, journaux WAL et clés de session sont dans un volume persistant. Les médias du catalogue d’origine sont inclus dans l’image ; le volume réserve aussi un répertoire aux futurs médias. Une sauvegarde utilise l’API SQLite Online Backup, jamais une simple copie à chaud du fichier principal.
