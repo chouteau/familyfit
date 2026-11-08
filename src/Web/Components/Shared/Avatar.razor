@@ -1,0 +1,2 @@
+<span class="avatar avatar-@Member.AvatarColor @Class" aria-hidden="true">@Member.Nickname[..1].ToUpperInvariant()</span>
+@code { [Parameter, EditorRequired] public Member Member { get; set; } = default!; [Parameter] public string Class { get; set; } = ""; }

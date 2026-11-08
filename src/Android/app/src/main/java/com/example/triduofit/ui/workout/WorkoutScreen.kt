@@ -36,6 +36,22 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
+import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
+import android.Manifest
+import android.content.pm.PackageManager
+import android.view.WindowManager
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import com.example.triduofit.family.FamilyRepository
+import com.example.triduofit.family.WorkoutCheckpoint
+import kotlinx.coroutines.launch
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -80,9 +96,15 @@ import com.example.triduofit.workout.WorkoutStateMachine
 fun WorkoutScreen(
     session: WorkoutSession,
     onBack: () -> Unit,
-    onWorkoutCompleted: () -> Unit
+    onWorkoutCompleted: (Boolean) -> Unit
 ) {
     val context = LocalContext.current
+    val family = remember { FamilyRepository.get(context) }
+    val coroutineScope = rememberCoroutineScope()
+    var finishedCheckpoint by remember { mutableStateOf<WorkoutCheckpoint?>(null) }
+    var showExit by remember { mutableStateOf(false) }
+    var saving by remember { mutableStateOf(false) }
+    var saveError by remember { mutableStateOf<String?>(null) }
     val settingsRepo = remember { SettingsRepository(context) }
     val technoPlayer = remember { TechnoBeatsPlayer() }
 
@@ -98,7 +120,7 @@ fun WorkoutScreen(
             audioCoach = audioCoach,
             technoPlayer = technoPlayer,
             settingsRepository = settingsRepo,
-            onWorkoutCompleted = onWorkoutCompleted
+            onWorkoutCompleted = { finishedCheckpoint = it }
         )
     }
 
@@ -109,10 +131,36 @@ fun WorkoutScreen(
     }
 
     val uiState by stateMachine.state.collectAsState()
+    val familyState by family.state.collectAsState()
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    val microphonePermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted -> if (granted) voiceRecognizer.startListening() }
 
     LaunchedEffect(Unit) {
-        stateMachine.start()
-        voiceRecognizer.startListening()
+        stateMachine.start(family.checkpoint().takeIf { family.activeSession()?.id == session.id })
+        if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) voiceRecognizer.startListening() else microphonePermission.launch(Manifest.permission.RECORD_AUDIO)
+    }
+
+    DisposableEffect(lifecycle) {
+        val window = (context as? android.app.Activity)?.window
+        window?.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        val observer = LifecycleEventObserver { _, event -> if (event == Lifecycle.Event.ON_STOP) { stateMachine.pause(); voiceRecognizer.stopListening() } else if (event == Lifecycle.Event.ON_RESUME && ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) voiceRecognizer.startListening() }
+        lifecycle.addObserver(observer)
+        onDispose { lifecycle.removeObserver(observer); window?.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON) }
+    }
+
+    LaunchedEffect(uiState.currentExerciseIndex, uiState.secondsRemaining, uiState.stepState, uiState.completedIndices, uiState.skippedIndices) {
+        if (session.programDayId != null) family.saveCheckpoint(stateMachine.progress())
+    }
+    BackHandler { stateMachine.pause(); showExit = true }
+    LaunchedEffect(familyState.storageFailure) { if (familyState.storageFailure) stateMachine.pause() }
+    if (familyState.storageFailure) AlertDialog(onDismissRequest = {}, title = { Text("L’enregistrement est en pause") }, text = { Text(familyState.message.orEmpty()) }, confirmButton = { TextButton(onClick = { coroutineScope.launch { family.saveCheckpoint(stateMachine.progress()) } }) { Text("Réessayer l’enregistrement") } })
+    if (finishedCheckpoint != null || showExit) {
+        val checkpoint = finishedCheckpoint ?: stateMachine.progress()
+        val allDone = checkpoint.completedIndices.size == session.exercises.size && checkpoint.skippedIndices.isEmpty()
+        AlertDialog(onDismissRequest = { if (!saving) showExit = false }, title = { Text(if (allDone) "Confirmer la séance ?" else "Enregistrer cette séance ?") },
+            text = { Text(saveError ?: if (allDone) "Tous les exercices sont réalisés. Les résultats d’un programme familial seront synchronisés dès que le réseau le permettra." else "${checkpoint.completedIndices.size} série(s) réalisée(s). La séance sera enregistrée comme partielle ou abandonnée, selon ce qui a été fait.") },
+            confirmButton = { TextButton(enabled = !saving, onClick = { coroutineScope.launch { saving = true; try { val completed = if (session.programDayId != null) family.finish(checkpoint) else allDone; if (completed) { settingsRepo.incrementStreak(); settingsRepo.addXp(60) }; finishedCheckpoint = null; showExit = false; onWorkoutCompleted(completed) } catch (e: Exception) { saveError = "L’enregistrement local a échoué. Libère de l’espace puis réessaie ; la séance ouverte est conservée." } finally { saving = false } } }) { Text("Confirmer et enregistrer") } },
+            dismissButton = { TextButton(enabled = !saving, onClick = { if (finishedCheckpoint != null) onBack() else showExit = false }) { Text(if (finishedCheckpoint != null && session.programDayId != null) "Conserver pour plus tard" else if (finishedCheckpoint != null) "Revenir au coach" else "Continuer la séance") } })
     }
 
     DisposableEffect(Unit) {
@@ -205,7 +253,8 @@ fun WorkoutScreen(
             IconButton(
                 onClick = {
                     stateMachine.release()
-                    onBack()
+                    stateMachine.pause()
+                    showExit = true
                 },
                 modifier = Modifier
                     .size(40.dp)

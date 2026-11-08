@@ -1,0 +1,42 @@
+@page "/"
+@attribute [Authorize]
+@inherits FamilyPage
+<PageTitle>La famille garde le rythme · FamilyFit</PageTitle>
+<div class="page-heading"><div><h1>La famille garde le rythme !</h1><p class="date-line"><Icon Name="calendar" />@Today.ToString("dddd d MMMM yyyy", French)</p></div></div>
+@if (Error != null) { <div class="notice error" role="alert">@Error</div> }
+@if (Loading) { <div class="loading" role="status">On prépare le point de la famille…</div> }
+else
+{
+    var expected = Data.Members.Count(x => DayFor(x.Id, Today) is { IsRest: false });
+    var completed = Data.Members.Count(x => StatusFor(DayFor(x.Id, Today)) == "completed");
+    var percent = expected == 0 ? 0 : completed * 100 / expected;
+    <section class="daily-banner" aria-label="Bilan du jour">
+        <div class="banner-content"><h2>@(expected == 0 ? "Une journée à votre rythme" : $"{completed} séance{(completed > 1 ? "s" : "")} sur {expected} terminée{(completed > 1 ? "s" : "")}")</h2>
+            <p>@(expected == 0 ? "Préparez vos prochaines séances, chacun selon ses envies." : completed == expected ? "Toute l’équipe a fait sa séance. Bravo la famille !" : "Chaque séance compte. On s’encourage et on avance ensemble !")</p>
+            @if (expected > 0) { <div class="progress-track" role="progressbar" aria-label="Séances terminées aujourd’hui" aria-valuenow="@percent" aria-valuemin="0" aria-valuemax="100"><span style="width: @(percent)%"></span></div><span class="progress-caption">@percent % de l’objectif du jour</span> }
+            <a href="planning" class="button primary"><Icon Name="calendar" />Voir le planning<Icon Name="arrow" Size="18" /></a>
+        </div>
+        <img class="banner-mascot" src="assets/mascot.png" alt="La mouette FamilyFit encourage la famille" />
+    </section>
+    <section class="section-block"><div class="section-heading"><div><h2>Aujourd’hui, chacun son rythme</h2><p>Les jours de repos ne comptent pas dans l’objectif.</p></div></div>
+        <div class="member-grid">
+            @foreach (var member in Data.Members)
+            {
+                var day = DayFor(member.Id, Today); var status = StatusFor(day);
+                <a class="member-card" href="@($"planning/{member.Id}")"><div class="member-card-heading"><Avatar Member="member" /><h3>@member.Nickname</h3></div>
+                    <div class="member-card-details"><strong>@(day?.Title ?? "À chacun son programme")</strong>
+                        @if (day is { IsRest: false }) { <span><Icon Name="location" Size="16" />@LocationName(day)</span><span><Icon Name="clock" Size="16" />@day.DurationMinutes min</span> }
+                        else { <span>@(day?.IsRest == true ? "On recharge les batteries." : "Aucune séance prévue aujourd’hui.")</span> }
+                    </div><StatusPill Status="@status" />
+                    <small class="sync-caption"><Icon Name="sync" Size="13" />@(member.LastSyncUtc is { } sync ? $"Synchro {TimeZoneInfo.ConvertTime(sync, FamilyCalendar.Paris):dd/MM HH:mm}" : "Première synchronisation attendue")</small>
+                </a>
+            }
+        </div>
+    </section>
+    <section class="section-block"><div class="section-heading"><h2>La semaine en un clin d’œil</h2><div class="week-controls"><button class="icon-button" aria-label="Semaine précédente" @onclick="() => WeekStart = WeekStart.AddDays(-7)"><Icon Name="chevron-left" /></button><span>@WeekStart.ToString("d MMM", French) – @WeekStart.AddDays(6).ToString("d MMM", French)</span><button class="icon-button" aria-label="Semaine suivante" @onclick="() => WeekStart = WeekStart.AddDays(7)"><Icon Name="chevron-right" /></button></div></div>
+        <div class="panel weekly-overview"><div class="table-scroll"><table class="family-week"><caption class="sr-only">État des séances de chaque membre pour la semaine</caption><thead><tr><th scope="col">Membre</th>@for (var offset = 0; offset < 7; offset++) { var date = WeekStart.AddDays(offset); <th scope="col" class="@(date == Today ? "today-column" : "")">@date.ToString("ddd d", French)</th> }</tr></thead>
+            <tbody>@foreach (var member in Data.Members) { <tr><th scope="row"><a href="@($"planning/{member.Id}")"><Avatar Member="member" Class="avatar-tiny" />@member.Nickname</a></th>@for (var offset = 0; offset < 7; offset++) { var date = WeekStart.AddDays(offset); <td class="@(date == Today ? "today-column" : "")"><StatusPill Status="@StatusFor(DayFor(member.Id, date))" Compact="true" /></td> }</tr> }</tbody></table></div>
+            <div class="table-footer"><div class="status-legend"><StatusPill Status="completed" /><StatusPill Status="partial" /><StatusPill Status="upcoming" /><StatusPill Status="rest" /></div><span><Icon Name="sync" Size="17" />Une séance hors ligne apparaît après sa synchronisation.</span></div>
+        </div>
+    </section>
+}

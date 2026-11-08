@@ -1,0 +1,11 @@
+[Unit]
+Description=Sauvegarde SQLite FamilyFit
+Requires=docker.service
+After=docker.service
+[Service]
+Type=oneshot
+Environment=FAMILYFIT_ROOT=/opt/familyfit
+Environment=FAMILYFIT_BACKUP_ROOT=/var/backups/familyfit
+Environment=FAMILYFIT_COMPOSE_FILE=compose.registry.yaml
+ExecStart=/bin/sh /opt/familyfit/deploy/backup.sh
+UMask=0077

@@ -1,5 +1,7 @@
 package com.example.triduofit.model
+import kotlinx.serialization.Serializable
 
+@Serializable
 enum class EquipmentType(val displayName: String) {
     ELLIPTICAL("Vélo Elliptique (Cardio & Échauffement)"),
     BALANCE_BOARD("Plateau d'Équilibre (Proprioception)"),
@@ -7,15 +9,19 @@ enum class EquipmentType(val displayName: String) {
     BACK_BENCH("Banc à Dorsaux / Lombaires"),
     AB_BENCH("Banc à Abdominaux Incliné"),
     PLYO_BOX("Cube en Bois (Plyo Box)"),
-    BODYWEIGHT("Poids de Corps")
+    BODYWEIGHT("Poids de Corps"),
+    DUMBBELLS("Haltères"), LAT_PULLDOWN("Poulie haute"), CHEST_PRESS("Presse à pectoraux"),
+    SEATED_ROW("Rowing assis"), LEG_PRESS("Presse à cuisses"), TREADMILL("Tapis de course"),
+    BIKE("Vélo"), MAT("Tapis de sol"), RESISTANCE_BAND("Élastique")
 }
 
+@Serializable
 enum class TargetType {
     TIME_SECONDS,  // Décompte de temps en secondes (ex: Vélo elliptique, Planche)
     REPETITIONS    // Nombre de répétitions ciblées (ex: Abdos, Squats bulgares, Dips)
 }
 
-enum class AnimationType {
+@Serializable enum class AnimationType {
     ELLIPTICAL_CARDIO,
     BALANCE_BOARD_STABILITY,
     PARALLEL_BARS_DIPS,
@@ -41,7 +47,7 @@ enum class AnimationType {
     GENERAL_FITNESS
 }
 
-data class Exercise(
+@Serializable data class Exercise(
     val id: String,
     val name: String,
     val equipment: EquipmentType,
@@ -56,7 +62,9 @@ data class Exercise(
     val executionSteps: List<String> = emptyList(),
     val commonMistakes: String = "",
     val drawableResName: String? = null,
-    val videoResName: String? = null
+    val videoResName: String? = null,
+    val cachedImageUrl: String? = null,
+    val cachedVideoUrl: String? = null
 ) {
     val durationSeconds: Int get() = targetCount
 }

@@ -1,0 +1,398 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-08T13:54:09.226663+00:00",
+  "title": "Design System: FamilyFit",
+  "extensions": {
+    "authority": "Compositions accueil et planning approuvées, 2026-11-08 ; extraction du code final.",
+    "source": "src/Web/wwwroot/app.css et src/Web/Components",
+    "colorMeta": {
+      "background": {
+        "role": "neutral",
+        "displayName": "Ivoire chaleureux",
+        "tonalRamp": [
+          "oklch(15.00% 0.00695 88.64)",
+          "oklch(26.43% 0.00695 88.64)",
+          "oklch(37.86% 0.00695 88.64)",
+          "oklch(49.29% 0.00695 88.64)",
+          "oklch(60.71% 0.00695 88.64)",
+          "oklch(72.14% 0.00695 88.64)",
+          "oklch(83.57% 0.00695 88.64)",
+          "oklch(95.00% 0.00695 88.64)"
+        ]
+      },
+      "surface": {
+        "role": "neutral",
+        "displayName": "Blanc des surfaces",
+        "tonalRamp": [
+          "oklch(15.00% 0.00000 89.88)",
+          "oklch(26.43% 0.00000 89.88)",
+          "oklch(37.86% 0.00000 89.88)",
+          "oklch(49.29% 0.00000 89.88)",
+          "oklch(60.71% 0.00000 89.88)",
+          "oklch(72.14% 0.00000 89.88)",
+          "oklch(83.57% 0.00000 89.88)",
+          "oklch(95.00% 0.00000 89.88)"
+        ]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Marine des textes",
+        "tonalRamp": [
+          "oklch(15.00% 0.05625 269.16)",
+          "oklch(26.43% 0.05625 269.16)",
+          "oklch(37.86% 0.05625 269.16)",
+          "oklch(49.29% 0.05625 269.16)",
+          "oklch(60.71% 0.05625 269.16)",
+          "oklch(72.14% 0.05625 269.16)",
+          "oklch(83.57% 0.05625 269.16)",
+          "oklch(95.00% 0.05625 269.16)"
+        ]
+      },
+      "muted": {
+        "role": "neutral",
+        "displayName": "Gris des informations secondaires",
+        "tonalRamp": [
+          "oklch(15.00% 0.02908 273.10)",
+          "oklch(26.43% 0.02908 273.10)",
+          "oklch(37.86% 0.02908 273.10)",
+          "oklch(49.29% 0.02908 273.10)",
+          "oklch(60.71% 0.02908 273.10)",
+          "oklch(72.14% 0.02908 273.10)",
+          "oklch(83.57% 0.02908 273.10)",
+          "oklch(95.00% 0.02908 273.10)"
+        ]
+      },
+      "primary": {
+        "role": "primary",
+        "displayName": "Vert feuille décoratif",
+        "tonalRamp": [
+          "oklch(15.00% 0.17942 138.40)",
+          "oklch(26.43% 0.17942 138.40)",
+          "oklch(37.86% 0.17942 138.40)",
+          "oklch(49.29% 0.17942 138.40)",
+          "oklch(60.71% 0.17942 138.40)",
+          "oklch(72.14% 0.17942 138.40)",
+          "oklch(83.57% 0.17942 138.40)",
+          "oklch(95.00% 0.17942 138.40)"
+        ]
+      },
+      "primary-action": {
+        "role": "primary",
+        "displayName": "Vert profond des actions",
+        "tonalRamp": [
+          "oklch(15.00% 0.15213 138.56)",
+          "oklch(26.43% 0.15213 138.56)",
+          "oklch(37.86% 0.15213 138.56)",
+          "oklch(49.29% 0.15213 138.56)",
+          "oklch(60.71% 0.15213 138.56)",
+          "oklch(72.14% 0.15213 138.56)",
+          "oklch(83.57% 0.15213 138.56)",
+          "oklch(95.00% 0.15213 138.56)"
+        ]
+      },
+      "green-soft": {
+        "role": "primary",
+        "displayName": "Vert tendre",
+        "tonalRamp": [
+          "oklch(15.00% 0.03488 126.50)",
+          "oklch(26.43% 0.03488 126.50)",
+          "oklch(37.86% 0.03488 126.50)",
+          "oklch(49.29% 0.03488 126.50)",
+          "oklch(60.71% 0.03488 126.50)",
+          "oklch(72.14% 0.03488 126.50)",
+          "oklch(83.57% 0.03488 126.50)",
+          "oklch(95.00% 0.03488 126.50)"
+        ]
+      },
+      "orange": {
+        "role": "secondary",
+        "displayName": "Orange des actions",
+        "tonalRamp": [
+          "oklch(15.00% 0.15672 45.00)",
+          "oklch(26.43% 0.15672 45.00)",
+          "oklch(37.86% 0.15672 45.00)",
+          "oklch(49.29% 0.15672 45.00)",
+          "oklch(60.71% 0.15672 45.00)",
+          "oklch(72.14% 0.15672 45.00)",
+          "oklch(83.57% 0.15672 45.00)",
+          "oklch(95.00% 0.15672 45.00)"
+        ]
+      },
+      "orange-soft": {
+        "role": "secondary",
+        "displayName": "Orange tendre",
+        "tonalRamp": [
+          "oklch(15.00% 0.02774 70.95)",
+          "oklch(26.43% 0.02774 70.95)",
+          "oklch(37.86% 0.02774 70.95)",
+          "oklch(49.29% 0.02774 70.95)",
+          "oklch(60.71% 0.02774 70.95)",
+          "oklch(72.14% 0.02774 70.95)",
+          "oklch(83.57% 0.02774 70.95)",
+          "oklch(95.00% 0.02774 70.95)"
+        ]
+      },
+      "blue": {
+        "role": "secondary",
+        "displayName": "Bleu des repères et du focus",
+        "tonalRamp": [
+          "oklch(15.00% 0.12916 246.59)",
+          "oklch(26.43% 0.12916 246.59)",
+          "oklch(37.86% 0.12916 246.59)",
+          "oklch(49.29% 0.12916 246.59)",
+          "oklch(60.71% 0.12916 246.59)",
+          "oklch(72.14% 0.12916 246.59)",
+          "oklch(83.57% 0.12916 246.59)",
+          "oklch(95.00% 0.12916 246.59)"
+        ]
+      },
+      "blue-soft": {
+        "role": "secondary",
+        "displayName": "Bleu tendre",
+        "tonalRamp": [
+          "oklch(15.00% 0.01955 245.64)",
+          "oklch(26.43% 0.01955 245.64)",
+          "oklch(37.86% 0.01955 245.64)",
+          "oklch(49.29% 0.01955 245.64)",
+          "oklch(60.71% 0.01955 245.64)",
+          "oklch(72.14% 0.01955 245.64)",
+          "oklch(83.57% 0.01955 245.64)",
+          "oklch(95.00% 0.01955 245.64)"
+        ]
+      },
+      "lemon": {
+        "role": "secondary",
+        "displayName": "Citron des bilans",
+        "tonalRamp": [
+          "oklch(15.00% 0.05899 96.92)",
+          "oklch(26.43% 0.05899 96.92)",
+          "oklch(37.86% 0.05899 96.92)",
+          "oklch(49.29% 0.05899 96.92)",
+          "oklch(60.71% 0.05899 96.92)",
+          "oklch(72.14% 0.05899 96.92)",
+          "oklch(83.57% 0.05899 96.92)",
+          "oklch(95.00% 0.05899 96.92)"
+        ]
+      },
+      "line": {
+        "role": "neutral",
+        "displayName": "Gris des séparateurs",
+        "tonalRamp": [
+          "oklch(15.00% 0.00832 91.49)",
+          "oklch(26.43% 0.00832 91.49)",
+          "oklch(37.86% 0.00832 91.49)",
+          "oklch(49.29% 0.00832 91.49)",
+          "oklch(60.71% 0.00832 91.49)",
+          "oklch(72.14% 0.00832 91.49)",
+          "oklch(83.57% 0.00832 91.49)",
+          "oklch(95.00% 0.00832 91.49)"
+        ]
+      },
+      "error": {
+        "role": "secondary",
+        "displayName": "Rouge de validation",
+        "tonalRamp": [
+          "oklch(15.00% 0.17203 25.45)",
+          "oklch(26.43% 0.17203 25.45)",
+          "oklch(37.86% 0.17203 25.45)",
+          "oklch(49.29% 0.17203 25.45)",
+          "oklch(60.71% 0.17203 25.45)",
+          "oklch(72.14% 0.17203 25.45)",
+          "oklch(83.57% 0.17203 25.45)",
+          "oklch(95.00% 0.17203 25.45)"
+        ]
+      }
+    },
+    "tonalRampNote": "Rampes de prévisualisation synthétisées en OKLCH ; seuls les tokens du frontmatter sont normatifs.",
+    "typographyMeta": {
+      "display": {
+        "displayName": "Titre principal",
+        "purpose": "Titre de page, 1.9rem à 800px et moins."
+      },
+      "headline": {
+        "displayName": "Titre de section",
+        "purpose": "Hiérarchie des panneaux, 1.3rem à 800px et moins."
+      },
+      "body": {
+        "displayName": "Texte courant",
+        "purpose": "Nunito Sans auto-hébergée, font-display swap."
+      }
+    },
+    "shadows": [
+      {
+        "name": "card",
+        "value": "0 3px 13px #18213e0a",
+        "purpose": "Surface blanche sur fond ivoire."
+      },
+      {
+        "name": "card-hover",
+        "value": "0 7px 20px #18213e12",
+        "purpose": "Carte membre au survol."
+      },
+      {
+        "name": "account-dropdown",
+        "value": "0 8px 30px #18213e20",
+        "purpose": "Menu de compte au-dessus du contenu."
+      },
+      {
+        "name": "primary-edge",
+        "value": "0 3px 0 #286a08",
+        "purpose": "Tranche des commandes principales."
+      }
+    ],
+    "motion": [
+      {
+        "name": "action-transition",
+        "value": "background .15s, transform .15s",
+        "purpose": "Boutons."
+      },
+      {
+        "name": "member-hover",
+        "value": "transform .18s, box-shadow .18s",
+        "purpose": "Carte membre, translation de -3px au survol."
+      },
+      {
+        "name": "reduced-motion",
+        "value": "transition:none; animation:none; scroll-behavior:auto",
+        "purpose": "Appliqué avec prefers-reduced-motion:reduce."
+      },
+      {
+        "name": "selected-day-scroll",
+        "value": "instant",
+        "purpose": "Recentrage horizontal local ; aucun déplacement vertical de page."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "wide",
+        "value": "1650px",
+        "query": "min-width"
+      },
+      {
+        "name": "compact-desktop",
+        "value": "1200px",
+        "query": "max-width"
+      },
+      {
+        "name": "mobile",
+        "value": "800px",
+        "query": "max-width"
+      },
+      {
+        "name": "small-mobile",
+        "value": "450px",
+        "query": "max-width"
+      }
+    ],
+    "layout": {
+      "sidebar": "220px",
+      "compactSidebar": "190px",
+      "maxContent": "1600px",
+      "planningGap": "20px",
+      "detailPanel": "330px",
+      "wideDetailPanel": "370px",
+      "memberGap": "14px",
+      "weekMinimum": "680px",
+      "mobileWeekMinimum": "700px"
+    },
+    "accessibility": [
+      "Focus clavier bleu de 3px avec décalage de 4px.",
+      "États avec libellés ; versions compactes masquées visuellement mais accessibles.",
+      "Conteneur table-scroll positionné relativement pour la légende sr-only.",
+      "Compte mobile accessible par details/summary avec appareils et déconnexion.",
+      "Jour sélectionné aria-pressed ; détail aria-live polite."
+    ]
+  },
+  "components": [
+    {
+      "name": "Action principale",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Commande explicite avec focus clavier et réponse au clic.",
+      "html": "<button class=\"ds-button-primary\">Voir mon planning</button>",
+      "css": ".ds-button-primary{display:inline-flex;align-items:center;justify-content:center;gap:9px;min-height:44px;border:0;border-radius:11px;padding:10px 18px;font:800 .95rem/1.5 \"Nunito Sans\",sans-serif;cursor:pointer;transition:background .15s,transform .15s;background:var(--green-hover,#2d7608);color:#fff;box-shadow:0 3px 0 #286a08}.ds-button-primary:hover{background:var(--green-hover,#2d7608)}.ds-button-primary:active{transform:translateY(1px)}.ds-button-primary:focus-visible{outline:3px solid var(--blue,#126eaf);outline-offset:4px}@media(prefers-reduced-motion:reduce){.ds-button-primary{transition:none}}"
+    },
+    {
+      "name": "Action secondaire",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Commande explicite avec focus clavier et réponse au clic.",
+      "html": "<button class=\"ds-button-secondary\">Aujourd’hui</button>",
+      "css": ".ds-button-secondary{display:inline-flex;align-items:center;justify-content:center;gap:9px;min-height:44px;border:0;border-radius:11px;padding:10px 18px;font:800 .95rem/1.5 \"Nunito Sans\",sans-serif;cursor:pointer;transition:background .15s,transform .15s;background:#f0f1ed;color:var(--ink,#18213e);box-shadow:none}.ds-button-secondary:hover{background:#e4e8dd}.ds-button-secondary:active{transform:translateY(1px)}.ds-button-secondary:focus-visible{outline:3px solid var(--blue,#126eaf);outline-offset:4px}@media(prefers-reduced-motion:reduce){.ds-button-secondary{transition:none}}"
+    },
+    {
+      "name": "Action orange",
+      "kind": "button",
+      "refersTo": "button-orange",
+      "description": "Commande explicite avec focus clavier et réponse au clic.",
+      "html": "<button class=\"ds-button-orange\">Voir la séance</button>",
+      "css": ".ds-button-orange{display:inline-flex;align-items:center;justify-content:center;gap:9px;min-height:44px;border:0;border-radius:11px;padding:10px 18px;font:800 .95rem/1.5 \"Nunito Sans\",sans-serif;cursor:pointer;transition:background .15s,transform .15s;background:var(--orange,#b94c03);color:#fff;box-shadow:0 3px 0 #b94c03}.ds-button-orange:hover{background:#a54202}.ds-button-orange:active{transform:translateY(1px)}.ds-button-orange:focus-visible{outline:3px solid var(--blue,#126eaf);outline-offset:4px}@media(prefers-reduced-motion:reduce){.ds-button-orange{transition:none}}"
+    },
+    {
+      "name": "Champ de formulaire",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Libellé au-dessus et contour de focus visible.",
+      "html": "<label class=\"ds-field\">Prénom<input value=\"Camille\" /></label>",
+      "css": ".ds-field{display:flex;flex-direction:column;gap:6px;color:var(--ink,#18213e);font:750 .86rem/1.5 \"Nunito Sans\",sans-serif}.ds-field input{font:400 1rem/1.5 \"Nunito Sans\",sans-serif;width:100%;border:1px solid #cfd4c9;background:var(--surface,#fff);color:var(--ink,#18213e);border-radius:9px;padding:10px 12px;min-height:43px}.ds-field input:focus-visible{outline:3px solid var(--blue,#126eaf);outline-offset:4px}"
+    },
+    {
+      "name": "Lien de navigation actif",
+      "kind": "nav",
+      "refersTo": "navigation-active",
+      "description": "Repère de page avec texte blanc et icône décorative.",
+      "html": "<nav aria-label=\"Navigation\"><a class=\"ds-navigation\" href=\"#planning\" aria-current=\"page\"><svg width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" aria-hidden=\"true\"><rect x=\"3\" y=\"5\" width=\"18\" height=\"16\" rx=\"2\"/><path d=\"M16 3v4M8 3v4M3 11h18\"/></svg>Planning</a></nav>",
+      "css": ".ds-navigation{display:flex;align-items:center;gap:16px;padding:14px 17px;border-radius:13px;font:800 1rem/1.5 \"Nunito Sans\",sans-serif;text-decoration:none;background:var(--green-hover,#2d7608);color:#fff;box-shadow:0 3px 0 #2a7309;transition:background .15s,color .15s}.ds-navigation:hover{background:var(--green-hover,#2d7608)}.ds-navigation:focus-visible{outline:3px solid var(--blue,#126eaf);outline-offset:4px}@media(prefers-reduced-motion:reduce){.ds-navigation{transition:none}}"
+    },
+    {
+      "name": "Statut terminé",
+      "kind": "chip",
+      "refersTo": "status-completed",
+      "description": "Un état exprimé par sa couleur, son pictogramme et son libellé.",
+      "html": "<span class=\"ds-status\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" aria-hidden=\"true\"><path d=\"m5 12 4 4L19 6\"/></svg>Terminée</span>",
+      "css": ".ds-status{display:inline-flex;align-items:center;gap:5px;white-space:nowrap;padding:5px 9px;border-radius:9px;font:800 .8rem/1.5 \"Nunito Sans\",sans-serif;background:#e4f5d1;color:#25690c}"
+    },
+    {
+      "name": "Carte membre",
+      "kind": "card",
+      "refersTo": "member-card",
+      "description": "Surface de membre avec avatar, prénom et contexte lisible.",
+      "html": "<article class=\"ds-member\"><div class=\"ds-member-heading\"><span class=\"ds-avatar\" aria-hidden=\"true\">C</span><h3>Camille</h3></div><p>30 min · Renforcement</p><span class=\"ds-member-status\">Séance prévue</span></article>",
+      "css": ".ds-member{display:flex;flex-direction:column;align-items:flex-start;gap:14px;padding:18px 16px;background:var(--surface,#fff);color:var(--ink,#18213e);border-radius:16px;box-shadow:0 3px 13px #18213e0a;font:400 1rem/1.5 \"Nunito Sans\",sans-serif;transition:transform .18s,box-shadow .18s}.ds-member:hover{transform:translateY(-3px);box-shadow:0 7px 20px #18213e12}.ds-member-heading{display:flex;align-items:center;gap:12px}.ds-member h3{margin:0;font-size:1.25rem;line-height:1.3;font-weight:800;overflow-wrap:anywhere}.ds-avatar{display:inline-flex;align-items:center;justify-content:center;width:52px;height:52px;border-radius:50%;background:#e0f2cb;color:#326b0a;font-weight:900;font-size:1.55rem;box-shadow:inset 0 -3px 0 #18213e08}.ds-member p{margin:0;font-size:.86rem;color:var(--muted,#626779)}.ds-member-status{padding:5px 9px;border-radius:9px;font-size:.8rem;font-weight:800;background:#e5f3ff;color:#145d97}@media(prefers-reduced-motion:reduce){.ds-member{transition:none}}"
+    }
+  ],
+  "narrative": {
+    "northStar": "Le rendez-vous sportif en famille",
+    "overview": "Les compositions accueil et planning approuvées donnent le ton : fond ivoire, surfaces blanches, titres marine arrondis et accents francs. La mouette sportive apporte une présence encourageante aux bilans et conseils ; elle accompagne les informations utiles sans remplacer les commandes.\n\nLe système privilégie la lisibilité et une progression familiale bienveillante. Les composants restent de vrais liens, boutons, formulaires et tableaux. Les données illustratives portent un repère visible, distinct des données réelles.",
+    "keyCharacteristics": [
+      "Ivoire chaleureux, marine lisible et accents sportifs.",
+      "Typographie arrondie, boutons généreux et cartes souples.",
+      "Statuts libellés et repos reconnu dans le planning.",
+      "Navigation et consultation adaptées au téléphone."
+    ],
+    "rules": [
+      {
+        "name": "Action Contrast",
+        "body": "Employer le vert profond pour les commandes à texte blanc ; réserver le vert feuille à la marque et aux repères visuels.",
+        "section": "colors"
+      },
+      {
+        "name": "Labeled Status",
+        "body": "Ne jamais transmettre un état uniquement par sa couleur : associer un libellé, éventuellement masqué visuellement pour la version compacte, et un pictogramme.",
+        "section": "colors"
+      }
+    ],
+    "dos": [
+      "Construire des composants réels à partir des compositions approuvées.",
+      "Conserver les libellés d'état, le focus visible et les messages de validation.",
+      "Garder le compte accessible sur mobile et le défilement des semaines local.",
+      "Identifier les données de démonstration et présenter le repos comme un état prévu."
+    ],
+    "donts": [
+      "Utiliser une image de maquette comme interface.",
+      "Remplacer le vert profond des actions à texte blanc par le vert décoratif.",
+      "Introduire un classement par poids, une inscription publique ou une exécution de séance dans le navigateur.",
+      "Présenter une synchronisation Garmin fictive comme une réussite réelle."
+    ]
+  }
+}

@@ -1,0 +1,36 @@
+@page "/membres"
+@attribute [Authorize]
+@inherits FamilyPage
+<PageTitle>Les membres · FamilyFit</PageTitle>
+<div class="page-heading"><div><h1>Une famille, plein d’énergies.</h1><p>Les objectifs et les progrès de chacun, au même endroit.</p></div>@if (Actor?.IsAdmin == true) { <button class="button primary" @onclick="NewMember"><Icon Name="plus" />Ajouter un membre</button> }</div>
+@if (Error != null) { <div class="notice error" role="alert">@Error</div> } @if (Message != null) { <div class="notice success" role="status">@Message</div> }
+<div class="management-grid">@foreach (var member in Data.Members) { <article class="panel profile-card"><div class="member-card-heading"><Avatar Member="member" /><div><h2>@member.Nickname</h2><span class="muted">@member.Age ans · @member.WeightKg.ToString("0.#", French) kg</span></div></div><p>@member.Goal</p><div class="equipment-tags"><span>@member.Level</span><span>@member.SessionMinutes min par séance</span></div><div class="card-actions">@if (Actor!.IsAdmin || member.Id == Actor.MemberId) { <button class="button secondary small" @onclick="() => EditMember(member)">Modifier le profil</button> }@if (Actor!.IsAdmin) { <button class="button small primary" @onclick="() => Invite(member)" disabled="@Busy"><Icon Name="qr" Size="17" />Inviter son mobile</button> }</div>
+    <details class="weight-history"><summary>Historique du poids</summary>@foreach (var weight in Data.Weights.Where(x => x.MemberId == member.Id).OrderByDescending(x => x.RecordedAtUtc).Take(12)) { <p><time>@TimeZoneInfo.ConvertTime(weight.RecordedAtUtc, FamilyCalendar.Paris).ToString("d MMM yyyy", French)</time><strong>@weight.WeightKg.ToString("0.#", French) kg</strong></p> }</details></article> }</div>
+@if (_invitation != null)
+{
+    <section class="panel invitation-panel"><div><h2>Invitation de @_invitedName</h2><p>À scanner dans l’application, ou saisir le code. Usage unique, valable dix minutes.</p><strong class="display-code">@_invitation.Code</strong><p class="muted">Expiration : @TimeZoneInfo.ConvertTime(_invitation.ExpiresAtUtc, FamilyCalendar.Paris).ToString("HH:mm", French)</p><button class="button secondary small" @onclick="() => _invitation = null">Masquer l’invitation</button></div><QrCode Payload="@_invitation.QrPayload" /></section>
+}
+@if (_form != null)
+{
+    <section class="panel editor-panel"><h2>@(_form.Id == null ? "Bienvenue dans l’équipe !" : $"Le profil de {_form.Nickname}")</h2><EditForm Model="_form" OnValidSubmit="Save" FormName="member-form"><DataAnnotationsValidator /><ValidationSummary /><div class="form-grid">
+        <label>Pseudo<InputText @bind-Value="_form.Nickname" autocomplete="nickname" /><ValidationMessage For="() => _form.Nickname" /></label>
+        <label>Âge<InputNumber @bind-Value="_form.Age" /><ValidationMessage For="() => _form.Age" /></label>
+        <label>Poids (kg)<InputNumber @bind-Value="_form.WeightKg" step="0.1" /><ValidationMessage For="() => _form.WeightKg" /></label>
+        <label>Niveau<InputSelect @bind-Value="_form.Level"><option>Débutant</option><option>Intermédiaire</option><option>Avancé</option></InputSelect></label>
+        <label>Durée souhaitée (minutes)<InputNumber @bind-Value="_form.SessionMinutes" /><ValidationMessage For="() => _form.SessionMinutes" /></label>
+        <label class="span-two">Objectif<InputTextArea @bind-Value="_form.Goal" rows="2" /><ValidationMessage For="() => _form.Goal" /></label>
+    </div><fieldset><legend>Jours disponibles</legend><div class="checkbox-grid">@foreach (var index in new[] { 1, 2, 3, 4, 5, 6, 0 }) { var day = index; <label class="check-option"><input type="checkbox" checked="@_form.Days.Contains(day)" @onchange="() => Toggle(_form.Days, day)" />@French.DateTimeFormat.GetDayName((DayOfWeek)day)</label> }</div></fieldset>
+        <details class="exclusion-list"><summary>Exercices à exclure du programme</summary><div class="checkbox-grid">@foreach (var exercise in Data.Exercises) { <label class="check-option"><input type="checkbox" checked="@_form.Exclusions.Contains(exercise.Id)" @onchange="() => Toggle(_form.Exclusions, exercise.Id)" />@exercise.Name</label> }</div></details>
+        <p class="muted">L’âge, le poids et les séances sont visibles par les membres de la famille.</p><div class="form-actions"><button class="button primary" type="submit" disabled="@Busy">Enregistrer le profil</button><button class="button secondary" type="button" @onclick="() => _form = null">Annuler</button></div>
+    </EditForm></section>
+}
+@code {
+    private MemberForm? _form;
+    private InvitationGrant? _invitation;
+    private string? _invitedName;
+    private void NewMember() { _form = new(); _invitation = null; Error = Message = null; }
+    private void EditMember(Member member) { _form = MemberForm.From(member); _invitation = null; Error = Message = null; }
+    private static void Toggle<T>(HashSet<T> set, T item) { if (!set.Add(item)) set.Remove(item); }
+    private async Task Save() { if (_form == null || Busy) return; Busy = true; try { var result = await Mediator.SaveMember(User, _form.Id, _form.Input(), Cancellation); if (await Accept(result, "Profil enregistré.")) _form = null; } finally { Busy = false; } }
+    private async Task Invite(Member member) { Busy = true; try { var result = await Mediator.CreateInvitation(User, member.Id, Cancellation); Error = result.Error; _invitation = result.Value; _invitedName = member.Nickname; _form = null; } finally { Busy = false; } }
+}

@@ -39,3 +39,22 @@ google-services.json
 *.apikey.txt
 *.key
 *.env*
+
+# FamilyFit generated files
+**/bin/
+**/obj/
+/src/Web/data/
+**/.build/
+**/DerivedData/
+**/xcuserdata/
+*.db
+*.db-shm
+*.db-wal
+src/Android/.familyfit-stage/
+output/
+
+private-invitation/
+backups/
+
+
+**/.playwright-cli/

@@ -1,0 +1,7 @@
+@using QRCoder
+<div class="qr-code" role="img" aria-label="@Label">@Svg</div>
+@code {
+    [Parameter, EditorRequired] public string Payload { get; set; } = "";
+    [Parameter] public string Label { get; set; } = "QR code à scanner avec l’application FamilyFit";
+    private MarkupString Svg { get { using var data = QRCodeGenerator.GenerateQrCode(Payload, QRCodeGenerator.ECCLevel.M); return new(new SvgQRCode(data).GetGraphic(5)); } }
+}

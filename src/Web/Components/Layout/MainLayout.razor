@@ -1,0 +1,49 @@
+@inherits LayoutComponentBase
+@inject AuthenticationStateProvider Authentication
+@inject IMediator Mediator
+@inject IConfiguration Configuration
+@inject IJSRuntime JS
+
+<AuthorizeView>
+    <Authorized>
+        <div class="app-shell">
+            <aside class="sidebar" aria-label="Navigation principale">
+                <a class="brand" href="/" aria-label="FamilyFit, accueil"><img src="assets/mascot.png" alt="" /><span>Family<span class="brand-fit">Fit</span></span></a>
+                <nav class="main-nav">
+                    <NavLink href="/" Match="NavLinkMatch.All"><Icon Name="home" />Accueil</NavLink>
+                    <NavLink href="planning"><Icon Name="calendar" />Planning</NavLink>
+                    <NavLink href="membres"><Icon Name="members" />Membres</NavLink>
+                    <NavLink href="equipements"><Icon Name="equipment" />Équipements</NavLink>
+                    <NavLink href="programmes"><Icon Name="program" />Programmes</NavLink>
+                </nav>
+                <div class="sidebar-bottom">
+                    <strong class="family-name"><Icon Name="members" />Famille Chouteau</strong>
+                    @if (_member != null) { <div class="signed-member"><Avatar Member="_member" /><span><strong>@_member.Nickname</strong><small>@(_member.IsAdmin ? "Administrateur" : "Membre de la famille")</small></span></div> }
+                    <NavLink class="device-link" href="appareils"><Icon Name="phone" Size="16" />Mes appareils</NavLink>
+                    <button class="text-button logout" @onclick="Logout"><Icon Name="logout" Size="16" />Se déconnecter</button>
+                </div>
+            </aside>
+            <div class="main-column">
+                <header class="topbar"><span class="mobile-brand">Family<span>Fit</span></span><span class="topbar-message"><Icon Name="phone" Size="15" />Connexion validée sur mobile</span>
+                    @if (Configuration.GetValue<bool>("FamilyFit:Demo")) { <span class="demo-badge">Démonstration · données fictives</span> }
+                    @if (_member != null) { <details class="account-menu"><summary aria-label="@($"Compte de {_member.Nickname}")"><Avatar Member="_member" Class="avatar-small" /></summary><div class="account-dropdown"><strong>@_member.Nickname</strong><a href="appareils"><Icon Name="phone" Size="17" />Mes appareils</a><button class="text-button" @onclick="Logout"><Icon Name="logout" Size="17" />Se déconnecter</button></div></details> }
+                </header>
+                <main id="main-content" class="page-content">@Body</main>
+                <footer class="site-footer">Un peu de mouvement, beaucoup de bonne humeur.</footer>
+            </div>
+        </div>
+    </Authorized>
+    <NotAuthorized>@Body</NotAuthorized>
+</AuthorizeView>
+<div id="blazor-error-ui" role="alert">La connexion a été interrompue. <a href="" class="reload">Recharger la page</a><button class="dismiss" aria-label="Fermer">×</button></div>
+@code {
+    private Member? _member;
+    protected override async Task OnInitializedAsync()
+    {
+        var user = (await Authentication.GetAuthenticationStateAsync()).User;
+        if (user.Identity?.IsAuthenticated != true) return;
+        var result = await Mediator.GetDashboard(user);
+        _member = result.Value?.Members.FirstOrDefault(x => x.Id.ToString() == user.FindFirstValue(ClaimTypes.NameIdentifier));
+    }
+    private Task Logout() => JS.InvokeVoidAsync("familyFit.logout").AsTask();
+}

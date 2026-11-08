@@ -1,0 +1,79 @@
+@page "/planning"
+@page "/planning/{MemberId:guid}"
+@attribute [Authorize]
+@inherits FamilyPage
+@inject IConfiguration Configuration
+<PageTitle>Planning · FamilyFit</PageTitle>
+@if (Loading) { <div class="loading" role="status">On prépare le planning…</div> }
+else if (SelectedMember is { } member)
+{
+    <div class="page-heading"><div><h1>Le planning de @member.Nickname</h1><p>Un programme à ton rythme, avec ton matériel.</p></div></div>
+    @if (Error != null) { <div class="notice error" role="alert">@Error</div> }
+    <div class="planning-toolbar"><div class="member-selector" aria-label="Choisir un membre">@foreach (var item in Data.Members) { <a class="member-chip @(item.Id == member.Id ? "selected" : "")" href="@($"planning/{item.Id}")" aria-current="@(item.Id == member.Id ? "page" : null)"><Avatar Member="item" Class="avatar-small" />@item.Nickname</a> }</div>
+        <div class="week-controls"><button class="icon-button" aria-label="Semaine précédente" @onclick="() => MoveWeek(-7)"><Icon Name="chevron-left" /></button><strong>@WeekStart.ToString("d MMM", French) – @WeekStart.AddDays(6).ToString("d MMM yyyy", French)</strong><button class="icon-button" aria-label="Semaine suivante" @onclick="() => MoveWeek(7)"><Icon Name="chevron-right" /></button><button class="button small secondary" @onclick="ResetWeek">Aujourd’hui</button></div>
+    </div>
+    <div class="profile-strip panel"><Avatar Member="member" /><strong>@member.Nickname</strong><span class="info-chip lemon"><Icon Name="target" Size="17" />@member.Goal</span><span class="info-chip blue">@member.Level</span><span class="info-chip green">@WeekDays.Count(x => !x.IsRest) séances cette semaine</span></div>
+    <div class="planning-layout"><div class="planning-main"><section class="panel calendar-panel" aria-label="Planning de la semaine"><div class="calendar-scroll"><div class="week-grid">
+        @for (var offset = 0; offset < 7; offset++)
+        {
+            var date = WeekStart.AddDays(offset); var day = DayFor(member.Id, date); var status = StatusFor(day);
+            var image = day?.Exercises.Select(p => Data.Exercises.FirstOrDefault(x => x.Id == p.ExerciseId)?.ImageUrl).FirstOrDefault(x => x != null);
+            <button class="day-card @(day?.IsRest == true ? "rest-day" : "") @(date == Today ? "current-day" : "") @(_selectedDate == date ? "selected-day" : "")" @onclick="() => SelectDay(date)" aria-pressed="@(_selectedDate == date)">
+                <span class="day-heading"><strong>@date.ToString("ddd d", French)</strong><span>@date.ToString("MMMM", French)</span></span>
+                <span class="day-visual">@if (day?.IsRest == true) { <Icon Name="rest" Size="44" /> } else if (image != null) { <img src="@image" alt="" loading="lazy" /> } else { <Icon Name="@(day == null ? "calendar" : "equipment")" Size="42" /> }</span>
+                <strong class="day-title">@(day?.Title ?? "À planifier")</strong>
+                @if (day is { IsRest: false }) { <span class="day-meta"><Icon Name="clock" Size="14" />@day.DurationMinutes min</span><span class="day-meta"><Icon Name="location" Size="14" />@LocationName(day)</span> }
+                <StatusPill Status="@status" />
+            </button>
+        }
+        </div></div><div class="calendar-summary"><Icon Name="calendar" Size="18" />@CompletedCount séance(s) terminée(s) · @PartialCount partielle(s) · @UpcomingCount à venir</div></section>
+        <section class="panel equipment-summary"><div class="section-heading"><h2>Le matériel de @member.Nickname</h2><a class="text-link" href="equipements">Voir les équipements<Icon Name="arrow" Size="16" /></a></div>
+            @if (SelectedLocation is { } location) { <p><Icon Name="location" Size="16" />@location.Name · matériel renseigné pour ce lieu</p><div class="equipment-tags">@foreach (var equipment in FamilyCalendar.Split(location.EquipmentIds)) { <span><Icon Name="equipment" Size="23" />@EquipmentCatalogue.All.GetValueOrDefault(equipment, equipment)</span> }</div> }
+            else { <p>Choisis une séance pour voir le matériel de son lieu d’entraînement.</p> }
+        </section>
+    </div><aside class="panel session-detail" aria-label="Détail du jour sélectionné" aria-live="polite"><p class="selected-date">@_selectedDate.ToString("dddd d MMMM", French)</p>
+        @if (SelectedDay is { } selected)
+        {
+            <div class="detail-title"><h2>@selected.Title</h2><StatusPill Status="@StatusFor(selected)" /></div>
+            @if (selected.IsRest) { <div class="rest-message"><Icon Name="rest" Size="56" /><h3>On recharge les batteries.</h3><p>Le repos fait partie du programme. Profite de ta journée !</p></div> }
+            else
+            {
+                <div class="session-meta"><span><Icon Name="clock" Size="18" />@selected.DurationMinutes min</span><span><Icon Name="location" Size="18" />@LocationName(selected)</span></div>
+                <ol class="exercise-list">@foreach (var item in selected.Exercises) { var exercise = Data.Exercises.FirstOrDefault(x => x.Id == item.ExerciseId); <li>@if (exercise?.ImageUrl != null) { <img src="@exercise.ImageUrl" alt="" loading="lazy" /> } else { <span class="exercise-placeholder"><Icon Name="equipment" Size="28" /></span> }<div><strong>@(exercise?.Name ?? item.ExerciseId)</strong><span>@item.Sets × @item.Target @(exercise?.TargetType == "repetitions" ? "répétitions" : "secondes")</span><small>@item.RestSeconds s de repos</small></div></li> }</ol>
+                var program = Data.Programs.First(x => x.Id == selected.ProgramId); var approver = Data.Members.FirstOrDefault(x => x.Id == program.ApprovedBy);
+                <p class="approval-note"><Icon Name="check" Size="18" />Programme validé par @(approver?.Nickname ?? "l’administrateur")</p>
+                @if (member.Id == Actor.MemberId) { <button class="button orange full-width" @onclick="() => _showMobileQr = !_showMobileQr"><Icon Name="phone" />Retrouver sur mon mobile</button>@if (_showMobileQr) { <QrCode Payload="@WorkoutLink(selected.Id)" /><p class="centered muted">Scanne avec ton application FamilyFit.</p> } }
+                <p class="mobile-note"><Icon Name="download" Size="17" />L’entraînement se déroule dans l’application, hors ligne après téléchargement.</p>
+            }
+        }
+        else { <div class="empty-state"><Icon Name="calendar" Size="44" /><h3>Une journée à organiser</h3><p>Aucune séance n’a encore été publiée pour cette date.</p>@if (Actor.IsAdmin) { <a class="button primary" href="programmes">Préparer un programme</a> }</div> }
+        <div class="coach-note"><img src="assets/mascot.png" alt="" /><p>Chaque séance compte.<br />Les jours de repos aussi.</p></div>
+    </aside></div>
+}
+@code {
+    [Inject] private IJSRuntime Js { get; set; } = default!;
+    private string? _scrolledSelection;
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (Loading || SelectedMember == null) return;
+        var selection = $"{SelectedMember.Id}:{_selectedDate}";
+        if (_scrolledSelection == selection) return;
+        await Js.InvokeVoidAsync("familyFit.revealSelectedDay");
+        _scrolledSelection = selection;
+    }
+    [Parameter] public Guid? MemberId { get; set; }
+    private DateOnly _selectedDate;
+    private bool _showMobileQr;
+    private Member? SelectedMember => Data.Members.FirstOrDefault(x => x.Id == (MemberId ?? Actor?.MemberId)) ?? Data.Members.FirstOrDefault();
+    private List<ProgramDay> WeekDays => SelectedMember == null ? [] : Enumerable.Range(0, 7).Select(x => DayFor(SelectedMember.Id, WeekStart.AddDays(x))).OfType<ProgramDay>().ToList();
+    private ProgramDay? SelectedDay => SelectedMember == null ? null : DayFor(SelectedMember.Id, _selectedDate);
+    private Location? SelectedLocation => Data.Locations.FirstOrDefault(x => x.Id == SelectedDay?.LocationId);
+    private int CompletedCount => WeekDays.Count(x => StatusFor(x) == "completed");
+    private int PartialCount => WeekDays.Count(x => StatusFor(x) == "partial");
+    private int UpcomingCount => WeekDays.Count(x => StatusFor(x) is "todo" or "upcoming");
+    protected override void OnParametersSet() { if (_selectedDate == default) _selectedDate = Today; _showMobileQr = false; }
+    private void MoveWeek(int days) { WeekStart = WeekStart.AddDays(days); SelectDay(WeekStart); }
+    private void ResetWeek() { WeekStart = FamilyCalendar.Monday(Today); SelectDay(Today); }
+    private void SelectDay(DateOnly date) { _selectedDate = date; _showMobileQr = false; }
+    private string WorkoutLink(Guid id) => $"familyfit://workout?day={id}&server={Uri.EscapeDataString(Configuration["FamilyFit:PublicUrl"]!)}";
+}
