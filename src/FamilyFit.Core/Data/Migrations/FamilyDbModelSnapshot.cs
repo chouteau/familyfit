@@ -125,6 +125,57 @@ namespace FamilyFit.Core.Data.Migrations
                     b.ToTable("Devices");
                 });
 
+            modelBuilder.Entity("FamilyFit.Contracts.Models.Equipment.EquipmentDefinition", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("ImageVersion")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("Revision")
+                        .IsConcurrencyToken()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("TargetMusclesJson")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Equipment");
+                });
+
+            modelBuilder.Entity("FamilyFit.Contracts.Models.Equipment.EquipmentImage", b =>
+                {
+                    b.Property<string>("EquipmentId")
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<byte[]>("Data")
+                        .IsRequired()
+                        .HasColumnType("BLOB");
+
+                    b.HasKey("EquipmentId");
+
+                    b.ToTable("EquipmentImages");
+                });
+
             modelBuilder.Entity("FamilyFit.Contracts.Models.Exercise", b =>
                 {
                     b.Property<string>("Id")
@@ -495,6 +546,15 @@ namespace FamilyFit.Core.Data.Migrations
                         .WithMany()
                         .HasForeignKey("MemberId")
                         .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("FamilyFit.Contracts.Models.Equipment.EquipmentImage", b =>
+                {
+                    b.HasOne("FamilyFit.Contracts.Models.Equipment.EquipmentDefinition", null)
+                        .WithOne()
+                        .HasForeignKey("FamilyFit.Contracts.Models.Equipment.EquipmentImage", "EquipmentId")
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });
 

@@ -1,15 +1,161 @@
 @page "/equipements"
 @attribute [Authorize]
 @inherits FamilyPage
+@using FamilyFit.Contracts.Models.Equipment
+
 <PageTitle>Les équipements · FamilyFit</PageTitle>
-<div class="page-heading"><div><h1>À chacun sa salle de sport.</h1><p>Un programme qui s’adapte au matériel réellement disponible.</p></div><button class="button primary" @onclick="NewLocation"><Icon Name="plus" />Ajouter un lieu</button></div>
-@if (Error != null) { <div class="notice error" role="alert">@Error</div> } @if (Message != null) { <div class="notice success" role="status">@Message</div> }
-<div class="management-grid">@foreach (var location in Data.Locations) { var owner = Data.Members.First(x => x.Id == location.MemberId); <article class="panel location-card"><div class="member-card-heading"><span class="large-icon"><Icon Name="location" Size="29" /></span><div><h2>@location.Name</h2><p class="muted">Le lieu de @owner.Nickname</p></div></div><div class="equipment-tags">@foreach (var equipment in FamilyCalendar.Split(location.EquipmentIds)) { <span>@EquipmentCatalogue.All.GetValueOrDefault(equipment, equipment)</span> }</div>@if (Actor.IsAdmin || owner.Id == Actor.MemberId) { <button class="button secondary small" @onclick="() => _form = LocationForm.From(location)">Modifier le matériel</button> }</article> }</div>
-@if (!Loading && Data.Locations.Count == 0) { <div class="empty-state panel"><Icon Name="equipment" Size="44" /><h2>Où est-ce qu’on s’entraîne ?</h2><p>Ajoute un premier lieu et coche le matériel disponible.</p></div> }
-@if (_form != null) { <section class="panel editor-panel"><h2>@(_form.Id == null ? "Un nouveau lieu" : _form.Name)</h2><EditForm Model="_form" OnValidSubmit="Save" FormName="location-form"><DataAnnotationsValidator /><ValidationSummary /><div class="form-grid"><label>Nom du lieu<InputText @bind-Value="_form.Name" placeholder="Maison, Basic-Fit…" /><ValidationMessage For="() => _form.Name" /></label><label>Membre<InputSelect @bind-Value="_form.MemberId" disabled="@(_form.Id != null || !Actor.IsAdmin)">@foreach (var member in Data.Members.Where(x => Actor.IsAdmin || x.Id == Actor.MemberId)) { <option value="@member.Id">@member.Nickname</option> }</InputSelect></label></div><fieldset><legend>Matériel confirmé dans ce lieu</legend><div class="checkbox-grid">@foreach (var equipment in EquipmentCatalogue.All) { <label class="check-option"><input type="checkbox" checked="@_form.Equipment.Contains(equipment.Key)" disabled="@(equipment.Key == "BODYWEIGHT")" @onchange="() => Toggle(equipment.Key)" />@equipment.Value</label> }</div></fieldset><p class="muted">Le nom d’une salle ne préremplit pas son équipement. Après un changement, fais vérifier les programmes à venir par l’administrateur.</p><div class="form-actions"><button class="button primary" type="submit" disabled="@Busy">Enregistrer le lieu</button><button class="button secondary" type="button" @onclick="() => _form = null">Annuler</button></div></EditForm></section> }
+<HeadContent><link rel="stylesheet" href="@Assets["FamilyFit.Web.styles.css"]" /></HeadContent>
+<div class="page-heading">
+    <div><h1>À chacun sa salle de sport.</h1><p>Un programme qui s’adapte au matériel réellement disponible.</p></div>
+    <button class="button primary" @onclick="NewLocation"><Icon Name="plus" />Ajouter un lieu</button>
+</div>
+@if (Error != null) { <div class="notice error" role="alert">@Error</div> }
+@if (Message != null) { <div class="notice success" role="status">@Message</div> }
+
+<div class="management-grid">
+    @foreach (var location in Data.Locations)
+    {
+        var owner = Data.Members.First(x => x.Id == location.MemberId);
+        <article class="panel location-card" @key="location.Id">
+            <div class="member-card-heading">
+                <span class="large-icon"><Icon Name="location" Size="29" /></span>
+                <div><h2>@location.Name</h2><p class="muted">Le lieu de @owner.Nickname</p></div>
+            </div>
+            <div class="equipment-tags">
+                @foreach (var id in FamilyCalendar.Split(location.EquipmentIds))
+                {
+                    <button type="button" class="equipment-tag" aria-expanded="@(_selectedId == id)" aria-controls="equipment-details" @onclick="() => ShowDetails(id)">@EquipmentName(id)</button>
+                }
+            </div>
+            @if (Actor.IsAdmin || owner.Id == Actor.MemberId)
+            {
+                <button class="button secondary small location-edit" @onclick="() => EditLocation(location)">Modifier le matériel</button>
+            }
+        </article>
+    }
+</div>
+@if (!Loading && Data.Locations.Count == 0)
+{
+    <div class="empty-state panel"><Icon Name="equipment" Size="44" /><h2>Où est-ce qu’on s’entraîne ?</h2><p>Ajoute un premier lieu et coche le matériel disponible.</p></div>
+}
+
+@if (_form != null)
+{
+    <section class="panel editor-panel equipment-editor" aria-labelledby="equipment-editor-title">
+        <h2 id="equipment-editor-title">@(_form.Id == null ? "Un nouveau lieu" : $"Matériel disponible : {_form.Name}")</h2>
+        <EditForm Model="_form" OnValidSubmit="Save" FormName="location-form">
+            <DataAnnotationsValidator /><ValidationSummary />
+            <div class="form-grid">
+                <label>Nom du lieu<InputText @bind-Value="_form.Name" placeholder="Maison, Basic-Fit…" /><ValidationMessage For="() => _form.Name" /></label>
+                <label>Membre<InputSelect @bind-Value="_form.MemberId" disabled="@(_form.Id != null || !Actor.IsAdmin)">
+                    @foreach (var member in Data.Members.Where(x => Actor.IsAdmin || x.Id == Actor.MemberId))
+                    { <option value="@member.Id">@member.Nickname</option> }
+                </InputSelect></label>
+            </div>
+            <fieldset>
+                <legend>Matériel confirmé dans ce lieu</legend>
+                @if (_catalogue.Count == 0)
+                { <p class="muted" role="status">Le catalogue des équipements n’est pas disponible. Recharge la page avant d’enregistrer.</p> }
+                <div class="equipment-list">
+                    @foreach (var equipment in _catalogue.OrderBy(x => x.Id != "BODYWEIGHT"))
+                    {
+                        var alwaysAvailable = equipment.Id == "BODYWEIGHT";
+                        <div class="equipment-row" @key="equipment.Id">
+                            <label class="equipment-choice">
+                                <input type="checkbox" checked="@(alwaysAvailable || _form.Equipment.Contains(equipment.Id))" disabled="@alwaysAvailable" @onchange="() => Toggle(equipment.Id)" />
+                                <span class="equipment-thumbnail"><EquipmentPhoto Equipment="equipment" /></span>
+                                <span class="equipment-copy">
+                                    <strong>@equipment.Name</strong>
+                                    <span class="equipment-description">@equipment.Description</span>
+                                    <span class="equipment-muscles"><b>Travaille :</b> @string.Join(" · ", equipment.TargetMuscles)</span>
+                                    @if (alwaysAvailable) { <span class="equipment-availability">Toujours disponible</span> }
+                                </span>
+                            </label>
+                            <button class="equipment-details-link" type="button" aria-label="@($"Voir la fiche : {equipment.Name}")" aria-expanded="@(_selectedId == equipment.Id)" aria-controls="equipment-details" @onclick="() => ShowDetails(equipment.Id)">Voir la fiche</button>
+                        </div>
+                    }
+                </div>
+            </fieldset>
+            <p class="muted equipment-note">Coche uniquement le matériel réellement présent dans ce lieu. Le nom d’une salle ne préremplit pas son équipement. Après un changement, fais vérifier les programmes à venir par l’administrateur.</p>
+            <div class="form-actions">
+                <button class="button primary" type="submit" disabled="@(Busy || _catalogue.Count == 0)">Enregistrer le lieu</button>
+                <button class="button secondary" type="button" @onclick="CloseEditor">Annuler</button>
+            </div>
+        </EditForm>
+    </section>
+}
+
+<div id="equipment-details" aria-live="polite" tabindex="-1" @ref="_detailsElement">
+    @if (SelectedEquipment is { } selected)
+    {
+        <section class="panel equipment-detail" aria-labelledby="equipment-detail-title">
+            <div class="equipment-detail-photo"><EquipmentPhoto Equipment="selected" Detailed="true" /></div>
+            <div class="equipment-detail-copy">
+                <div class="equipment-detail-heading"><h2 id="equipment-detail-title">@selected.Name</h2><button type="button" class="equipment-details-link" @onclick="() => _selectedId = null">Fermer la fiche</button></div>
+                <h3>Description</h3><p>@selected.Description</p>
+                <h3>Muscles et capacités sollicités</h3>
+                <ul class="equipment-muscle-tags">@foreach (var muscle in selected.TargetMuscles) { <li>@muscle</li> }</ul>
+            </div>
+        </section>
+    }
+</div>
+
 @code {
     private LocationForm? _form;
-    private void NewLocation() { _form = new() { MemberId = Actor.MemberId }; Error = Message = null; }
-    private void Toggle(string key) { if (!_form!.Equipment.Add(key)) _form.Equipment.Remove(key); }
-    private async Task Save() { if (_form == null || Busy) return; Busy = true; try { var input = new LocationInput(_form.MemberId, _form.Name, _form.Equipment.ToArray(), _form.Revision); if (await Accept(await Mediator.SaveLocation(User, _form.Id, input, Cancellation), "Lieu et matériel enregistrés.")) _form = null; } finally { Busy = false; } }
+    private List<EquipmentDefinition> _catalogue = [];
+    private string? _selectedId;
+    private ElementReference _detailsElement;
+    private bool _focusDetails;
+    private EquipmentDefinition? SelectedEquipment => _catalogue.FirstOrDefault(x => x.Id == _selectedId);
+
+    protected override async Task OnInitializedAsync()
+    {
+        await base.OnInitializedAsync();
+        if (Actor is null) return;
+        await LoadCatalogue();
+        Updates.Changed += CatalogueChanged;
+    }
+
+    private async Task LoadCatalogue()
+    {
+        var result = await Mediator.GetEquipmentCatalogue(User, Cancellation);
+        if (result.Success) _catalogue = result.Value!;
+        else Error = result.Error;
+    }
+
+    private void CatalogueChanged()
+    {
+        if (!Cancellation.IsCancellationRequested) _ = RefreshCatalogue();
+    }
+
+    private async Task RefreshCatalogue()
+    {
+        try { await InvokeAsync(async () => { await LoadCatalogue(); StateHasChanged(); }); }
+        catch (OperationCanceledException) { }
+    }
+
+    private string EquipmentName(string id) => _catalogue.FirstOrDefault(x => x.Id == id)?.Name ?? EquipmentCatalogue.All.GetValueOrDefault(id, id);
+    private void ShowDetails(string id) { _selectedId = _selectedId == id ? null : id; _focusDetails = _selectedId != null; }
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_focusDetails) { _focusDetails = false; await _detailsElement.FocusAsync(); }
+    }
+    private void NewLocation() { _form = new() { MemberId = Actor.MemberId }; _selectedId = null; Error = Message = null; }
+    private void EditLocation(Location location) { _form = LocationForm.From(location); _selectedId = null; Error = Message = null; }
+    private void CloseEditor() { _form = null; _selectedId = null; }
+    private void Toggle(string id) { if (id != "BODYWEIGHT" && !_form!.Equipment.Add(id)) _form.Equipment.Remove(id); }
+
+    private async Task Save()
+    {
+        if (_form == null || Busy || _catalogue.Count == 0) return;
+        Busy = true;
+        try
+        {
+            var input = new LocationInput(_form.MemberId, _form.Name, _form.Equipment.ToArray(), _form.Revision);
+            if (await Accept(await Mediator.SaveLocation(User, _form.Id, input, Cancellation), "Lieu et matériel enregistrés.")) CloseEditor();
+        }
+        finally { Busy = false; }
+    }
+
+    public override void Dispose() { Updates.Changed -= CatalogueChanged; base.Dispose(); }
 }

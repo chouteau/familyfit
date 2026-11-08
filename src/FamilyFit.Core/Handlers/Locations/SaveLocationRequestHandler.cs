@@ -14,10 +14,13 @@ public sealed class SaveLocationRequestHandler(IDbContextFactory<FamilyDb> facto
     protected override async Task<Outcome<Location>> Execute(SaveLocationRequest request, Actor actor, CancellationToken ct)
     {
         var input = request.Input;
-        if (input == null || input.MemberId == Guid.Empty || string.IsNullOrWhiteSpace(input.Name) || input.Name.Length > 80 || input.EquipmentIds == null || input.EquipmentIds.Any(x => !EquipmentCatalogue.All.ContainsKey(x))) return Outcome<Location>.Fail("Vérifie le membre, le nom du lieu et le matériel.");
+        if (input == null || input.MemberId == Guid.Empty || string.IsNullOrWhiteSpace(input.Name) || input.Name.Length > 80 || input.EquipmentIds == null || input.EquipmentIds.Any(x => string.IsNullOrWhiteSpace(x) || x.Length > 64)) return Outcome<Location>.Fail("Vérifie le membre, le nom du lieu et le matériel.");
         if (!actor.IsAdmin && input.MemberId != actor.MemberId) return Outcome<Location>.Fail("Tu ne peux gérer que tes propres lieux.", 403);
         await using var db = await factory.CreateDbContextAsync(ct);
         if (!await db.Members.AnyAsync(x => x.Id == input.MemberId, ct)) return Outcome<Location>.Fail("Membre introuvable.", 404);
+        var equipmentIds = input.EquipmentIds.Distinct().ToArray();
+        if (await db.Equipment.CountAsync(x => equipmentIds.Contains(x.Id), ct) != equipmentIds.Length)
+            return Outcome<Location>.Fail("Un équipement n’existe pas dans le catalogue. Recharge les informations.");
         var location = request.Id == null ? new Location { MemberId = input.MemberId } : await db.Locations.SingleOrDefaultAsync(x => x.Id == request.Id, ct);
         if (location == null) return Outcome<Location>.Fail("Lieu introuvable.", 404);
         if (location.MemberId != input.MemberId) return Outcome<Location>.Fail("Un lieu ne peut pas changer de propriétaire.", 403);

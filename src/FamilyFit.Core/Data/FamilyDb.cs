@@ -10,6 +10,8 @@ public sealed class FamilyDb(DbContextOptions<FamilyDb> options) : DbContext(opt
     {
         configurationBuilder.Properties<DateTimeOffset>().HaveConversion<UtcTicksConverter>();
     }
+    public DbSet<FamilyFit.Contracts.Models.Equipment.EquipmentDefinition> Equipment => Set<FamilyFit.Contracts.Models.Equipment.EquipmentDefinition>();
+    public DbSet<FamilyFit.Contracts.Models.Equipment.EquipmentImage> EquipmentImages => Set<FamilyFit.Contracts.Models.Equipment.EquipmentImage>();
     public DbSet<Member> Members => Set<Member>();
     public DbSet<WeightEntry> Weights => Set<WeightEntry>();
     public DbSet<Location> Locations => Set<Location>();
@@ -26,6 +28,9 @@ public sealed class FamilyDb(DbContextOptions<FamilyDb> options) : DbContext(opt
 
     protected override void OnModelCreating(ModelBuilder b)
     {
+        b.Entity<FamilyFit.Contracts.Models.Equipment.EquipmentDefinition>().Property(x => x.Revision).IsConcurrencyToken();
+        b.Entity<FamilyFit.Contracts.Models.Equipment.EquipmentImage>().HasOne<FamilyFit.Contracts.Models.Equipment.EquipmentDefinition>()
+            .WithOne().HasForeignKey<FamilyFit.Contracts.Models.Equipment.EquipmentImage>(x => x.EquipmentId).OnDelete(DeleteBehavior.Cascade);
         b.Entity<Member>().Property(x => x.Revision).IsConcurrencyToken();
         b.Entity<AdminBootstrap>().Property(x => x.Id).ValueGeneratedNever();
         b.Entity<AdminBootstrap>().HasOne<Member>().WithMany().HasForeignKey(x => x.MemberId).OnDelete(DeleteBehavior.Restrict);

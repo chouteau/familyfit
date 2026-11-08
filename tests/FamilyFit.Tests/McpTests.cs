@@ -35,7 +35,7 @@ public sealed class McpTests
     {
         using var server = new FamilyServer(); var admin = await server.AddMember(true); using var http = server.Browser(); await using var client = await Connect(server, http, protocol);
         var tools = await client.ListToolsAsync();
-        Assert.Equal(18, tools.Count);
+        Assert.Equal(21, tools.Count);
         Assert.Contains(tools, x => x.Name == "get_family_dashboard"); Assert.Contains(tools, x => x.Name == "publish_program");
         Assert.DoesNotContain(tools, x => x.Name.Contains("key") || x.Name.Contains("invitation") || x.Name.Contains("login"));
         foreach (var tool in tools) { var schema = tool.JsonSchema.GetProperty("properties"); Assert.False(schema.TryGetProperty("user", out _)); Assert.False(schema.TryGetProperty("claimsPrincipal", out _)); }

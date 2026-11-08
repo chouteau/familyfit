@@ -13,6 +13,8 @@ public static class CatalogueSeeder
         await using var transaction = await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable, ct);
         var ids = await db.Exercises.Select(x => x.Id).ToListAsync(ct);
         db.Exercises.AddRange(exercises.Where(x => !ids.Contains(x.Id)));
+        var equipmentIds = await db.Equipment.Select(x => x.Id).ToListAsync(ct);
+        db.Equipment.AddRange(EquipmentDefaults.All.Where(x => !equipmentIds.Contains(x.Id)));
         await db.SaveChangesAsync(ct);
         await transaction.CommitAsync(ct);
     }

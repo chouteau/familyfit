@@ -1,3 +1,4 @@
+using FamilyFit.Contracts.Models.Equipment;
 using ChannelMediator;
 using FamilyFit.Contracts;
 using FamilyFit.Contracts.Models.Authentication;
@@ -82,6 +83,11 @@ public static class ApiEndpoints
         api.MapPost("/programs/{id:guid}/publish", async (Guid id, HttpContext c, IMediator m, CancellationToken ct) => Http(await m.PublishProgram(c.User, id, ct))).RequireAuthorization("DeviceOnly");
         api.MapGet("/devices", async (HttpContext c, IMediator m, CancellationToken ct) => Http(await m.GetDevices(c.User, ct))).RequireAuthorization();
         api.MapPost("/devices/{id:guid}/revoke", async (Guid id, HttpContext c, IMediator m, CancellationToken ct) => Http(await m.RevokeDevice(c.User, id, ct))).RequireAuthorization("DeviceOnly");
+        app.MapGet("/media/equipment/{id}", async (string id, HttpContext context, IMediator mediator, CancellationToken ct) =>
+        {
+            var result = await mediator.GetEquipmentImage(context.User, id, ct);
+            return result.Success ? Results.File(result.Value!.Data, result.Value.ContentType) : Http(result);
+        }).RequireAuthorization();
         app.MapGet("/media/{file}", (string file, IWebHostEnvironment environment) =>
         {
             if (Path.GetFileName(file) != file || !new[] { ".jpg", ".png", ".mp4" }.Contains(Path.GetExtension(file).ToLowerInvariant())) return Results.NotFound();
