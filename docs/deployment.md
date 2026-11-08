@@ -9,13 +9,21 @@ Après les contrôles web, les mises à jour de `main` publient `ghcr.io/choutea
 Pour une installation utilisant l’image GitHub, conserver `compose.registry.yaml` sur le VPS et choisir un tag explicite publié :
 
 ```sh
-export FAMILYFIT_IMAGE_TAG=sha-<commit-complet-publie>
+umask 077
+# Première installation uniquement : ne pas écraser un .env existant.
+# Remplacer le tag ci-dessous par un tag réellement publié.
+cat > .env <<'EOF'
+COMPOSE_FILE=compose.registry.yaml
+FAMILYFIT_IMAGE_TAG=sha-<commit-complet-publie>
+EOF
 docker compose -f compose.registry.yaml config --quiet
 docker compose -f compose.registry.yaml pull
 # Sur une installation existante : sauvegarder avant tout remplacement.
 docker compose -f compose.registry.yaml up -d --no-build
 docker compose -f compose.registry.yaml ps
 ```
+
+Docker Compose lit automatiquement ce `.env` depuis le dossier d’installation, y compris lors des sauvegardes systemd. Protéger ce fichier (600), conserver le tag dedans et le mettre à jour lors de chaque livraison ; un export interactif seul ne configure pas le timer. Les commandes suivantes supposent ce dossier et ce `.env`. Conserver aussi `deploy/backup.sh` et les unités systemd pour les sauvegardes.
 
 Ce fichier conserve le nom de projet `familyfit` et le volume `familyfit_familyfit-data`. Il ne construit pas sur le VPS et refuse de démarrer sans tag configuré. Ne pas changer le nom de projet ni supprimer le volume lors d’une mise à jour. Garder l’ancien tag pour le retour arrière et tenir compte des migrations lors d’une restauration.
 
@@ -49,8 +57,8 @@ Protéger tout fichier d’environnement local avec des droits 600 et ne pas l�
 
 ```sh
 docker compose config --quiet
-docker compose build
-docker compose up -d
+docker compose pull
+docker compose up -d --no-build
 docker compose ps
 curl --fail http://127.0.0.1:5088/health
 ```
@@ -68,7 +76,7 @@ Adapter âge/poids à la réalité. Récupérer l’invitation localement par SS
 
 ## Sauvegardes et mises à jour
 
-`deploy/backup.sh` crée une sauvegarde SQLite cohérente et exporte les clés de session et médias persistants. Adapter `FAMILYFIT_ROOT` et `FAMILYFIT_BACKUP_ROOT`. Répliquer les sauvegardes dans le système de sauvegarde externe existant ; une copie sur le même VPS ne protège pas de sa perte.
+`deploy/backup.sh` crée une sauvegarde SQLite cohérente et exporte les clés de session et médias persistants. Adapter `FAMILYFIT_ROOT` et `FAMILYFIT_BACKUP_ROOT`. Toutes ses commandes reçoivent explicitement `FAMILYFIT_COMPOSE_FILE` (défaut `compose.registry.yaml`) ; pour la construction locale, définir `FAMILYFIT_COMPOSE_FILE=compose.yaml`. Le tag obligatoire est lu depuis le `.env` du dossier du projet. Répliquer les sauvegardes dans le système de sauvegarde externe existant ; une copie sur le même VPS ne protège pas de sa perte.
 
 Les unités systemd fournies permettent une exécution quotidienne à 03:15 Europe/Paris. Adapter les chemins, installer les deux unités, puis activer le timer :
 

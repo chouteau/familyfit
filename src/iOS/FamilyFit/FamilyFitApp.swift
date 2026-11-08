@@ -1,4 +1,5 @@
 import SwiftUI
+import SwiftData
 
 @main @MainActor struct FamilyFitApp: App {
     @State private var store: FamilyStore?
