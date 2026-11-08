@@ -1,3 +1,4 @@
+using FamilyFit.Contracts.Models.Exercises;
 using FamilyFit.Contracts.Models.Equipment;
 using System.ComponentModel;
 using System.Security.Claims;
@@ -15,6 +16,10 @@ namespace FamilyFit.Web.Mcp;
 [McpServerToolType]
 public sealed class FamilyWriteTools(AgentToolRunner runner, IMediator mediator)
 {
+    [McpServerTool(Name = "create_exercise", ReadOnly = false, Destructive = false, OpenWorld = false), Description("Administrateur MCP uniquement. Créer un exercice manquant : id stable a-z, 0-9, _ (64 caractères), name (100), equipmentId existant (list_equipment), muscle (200), targetType time ou repetitions, instructions (2000), postureTip (1000). Refuse les identifiants existants sans les modifier. Ne déclare pas le matériel disponible dans un lieu ; consulter list_locations. Aucun média externe téléchargé.")]
+    public Task<CallToolResult> CreateExercise(ClaimsPrincipal user, ExerciseInput input, CancellationToken cancellationToken)
+        => runner.Run(user, () => mediator.CreateExercise(user, input, cancellationToken), cancellationToken);
+
     [McpServerTool(Name = "save_member", ReadOnly = false, Destructive = false, OpenWorld = false), Description("Créer (administrateur) ou modifier un profil selon les droits du membre de la clé. Lire d’abord sa révision actuelle ; ne pas inventer le poids ni les données personnelles.")]
     public Task<CallToolResult> SaveMember(ClaimsPrincipal user, MemberInput input, CancellationToken cancellationToken, Guid? memberId = null)
         => runner.Run(user, () => mediator.SaveMember(user, memberId, input, cancellationToken), cancellationToken);
