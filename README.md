@@ -78,7 +78,7 @@ Placer le Compose et [deploy/traefik.variables.example](deploy/traefik.variables
 ```sh
 umask 077
 # Première installation : conserver un éventuel .env existant.
-cp deploy/traefik.variables.example .env
+test -e .env || cp deploy/traefik.variables.example .env
 chmod 600 .env
 # Compléter .env avec les valeurs de votre installation Traefik.
 ```
