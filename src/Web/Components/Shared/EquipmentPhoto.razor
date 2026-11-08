@@ -1,0 +1,16 @@
+@using FamilyFit.Contracts.Models.Equipment
+@if (Equipment.ImageUrl is { } url && !_failed)
+{
+    <img class="equipment-photo" src="@url" alt="@(Detailed ? $"Photo de l’équipement : {Equipment.Name}" : "")" loading="lazy" decoding="async" @onerror="() => _failed = true" />
+}
+else
+{
+    <span class="equipment-photo-fallback" role="img" aria-label="@($"{Equipment.Name}, sans photo")"><Icon Name="@(Equipment.Id == "BODYWEIGHT" ? "members" : "equipment")" Size="40" />@if (Detailed) { <span>Photo non disponible</span> }</span>
+}
+@code {
+    [Parameter, EditorRequired] public EquipmentDefinition Equipment { get; set; } = default!;
+    [Parameter] public bool Detailed { get; set; }
+    private bool _failed;
+    private string? _previousUrl;
+    protected override void OnParametersSet() { if (_previousUrl != Equipment.ImageUrl) { _failed = false; _previousUrl = Equipment.ImageUrl; } }
+}
