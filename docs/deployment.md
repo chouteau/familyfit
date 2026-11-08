@@ -85,7 +85,7 @@ sudo systemctl daemon-reload
 sudo systemctl enable --now familyfit-backup.timer
 ```
 
-Avant une nouvelle version : exécuter le script de sauvegarde avec l’ancienne image encore en service, conserver son tag, construire la nouvelle image puis remplacer le conteneur. Les migrations EF Core s’appliquent au démarrage d’une seule instance. Une sauvegarde `--backup` ne déclenche pas de migration ni de modification du catalogue.
+Avant une nouvelle version : exécuter le script de sauvegarde avec l’ancienne image encore en service, conserver son tag, récupérer le nouveau tag publié par GitHub, mettre à jour le `.env` puis remplacer le conteneur. Les migrations EF Core s’appliquent au démarrage d’une seule instance. Une sauvegarde `--backup` ne déclenche pas de migration ni de modification du catalogue.
 
 Ne jamais utiliser `docker compose down -v` sur l’installation réelle : cette option supprime le volume de données.
 

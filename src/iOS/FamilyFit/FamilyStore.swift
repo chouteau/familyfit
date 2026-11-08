@@ -28,12 +28,13 @@ import Network
             let schema = Schema([CachedSnapshot.self, PendingWorkout.self, ActiveWorkout.self])
             container = try ModelContainer(for: schema, configurations: [ModelConfiguration(schema: schema)])
             context = ModelContext(container); context.autosaveEnabled = false
-            authorization = try DeviceKeychain.load()
+            let savedAuthorization = try DeviceKeychain.load()
             let configured = Bundle.main.object(forInfoDictionaryKey: "FamilyFitServerURL") as? String ?? "https://fit.chouteau.info"
             guard let url = URL(string: configured), url.scheme == "https", url.host != nil, url.user == nil, url.query == nil else { throw FamilyError.message("L’adresse du serveur FamilyFit n’est pas valide.") }
             serverURL = url
-            if let saved = authorization, saved.server != url.absoluteString { authorization = nil; needsActivation = true }
             mediaDirectory = try FileManager.default.url(for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: true).appending(path: "FamilyFitMedia", directoryHint: .isDirectory)
+            authorization = savedAuthorization
+            if let saved = savedAuthorization, saved.server != url.absoluteString { authorization = nil; needsActivation = true }
             try FileManager.default.createDirectory(at: mediaDirectory, withIntermediateDirectories: true)
             loadCache()
             monitor.pathUpdateHandler = { [weak self] path in

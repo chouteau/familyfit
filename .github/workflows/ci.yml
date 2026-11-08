@@ -44,7 +44,7 @@ jobs:
           set -euo pipefail
           trap 'docker rm -f familyfit-ci >/dev/null 2>&1 || true; docker volume rm familyfit-ci-data >/dev/null 2>&1 || true' EXIT
           docker run --detach --name familyfit-ci --read-only --tmpfs /tmp:rw,size=67108864 --cap-drop ALL --security-opt no-new-privileges --publish 127.0.0.1:5088:8080 --volume familyfit-ci-data:/data familyfit:ci
-          curl --fail --retry 20 --retry-connrefused --retry-delay 2 http://127.0.0.1:5088/health
+          curl --fail --retry 20 --retry-all-errors --retry-connrefused --retry-delay 2 http://127.0.0.1:5088/health
           test "$(curl --silent --output /dev/null --write-out '%{http_code}' http://127.0.0.1:5088/api/v1/family)" = 401
           test "$(curl --silent --output /dev/null --write-out '%{http_code}' http://127.0.0.1:5088/demo)" = 404
       - name: Test reports
