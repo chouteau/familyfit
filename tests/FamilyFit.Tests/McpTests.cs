@@ -35,12 +35,27 @@ public sealed class McpTests
     {
         using var server = new FamilyServer(); var admin = await server.AddMember(true); using var http = server.Browser(); await using var client = await Connect(server, http, protocol);
         var tools = await client.ListToolsAsync();
-        Assert.Equal(21, tools.Count);
+        Assert.Equal(22, tools.Count);
         Assert.Contains(tools, x => x.Name == "get_family_dashboard"); Assert.Contains(tools, x => x.Name == "publish_program");
         Assert.DoesNotContain(tools, x => x.Name.Contains("key") || x.Name.Contains("invitation") || x.Name.Contains("login"));
         foreach (var tool in tools) { var schema = tool.JsonSchema.GetProperty("properties"); Assert.False(schema.TryGetProperty("user", out _)); Assert.False(schema.TryGetProperty("claimsPrincipal", out _)); }
         var identity = Data(await client.CallToolAsync("get_current_member")); Assert.Equal(admin.Id, identity.GetProperty("memberId").GetGuid());
         Assert.DoesNotContain(server.McpKey, JsonSerializer.Serialize(tools.Select(x => x.ProtocolTool)));
+    }
+
+    [Fact] public async Task Create_Exercise_Is_Validated_Create_Only_And_Read_Only_Protected()
+    {
+        using var server = new FamilyServer(); await server.AddMember(true); using var http = server.Browser(); await using var client = await Connect(server, http);
+        var input = new FamilyFit.Contracts.Models.Exercises.ExerciseInput("wall_pushup", "Pompes au mur", "BODYWEIGHT", "Pectoraux", "repetitions", "Pousser doucement contre le mur.", "Corps aligné.");
+        var args = new Dictionary<string, object?> { ["input"] = input };
+        Assert.Equal("wall_pushup", Data(await client.CallToolAsync("create_exercise", args)).GetProperty("id").GetString());
+        Assert.True((await client.CallToolAsync("create_exercise", args)).IsError);
+        foreach (var invalid in new[] { input with { Id = "INVALID" }, input with { Id = "unknown_equipment", EquipmentId = "UNKNOWN" }, input with { Id = "bad_type", TargetType = "other" }, input with { Id = "empty_name", Name = " " } })
+            Assert.True((await client.CallToolAsync("create_exercise", new Dictionary<string, object?> { ["input"] = invalid })).IsError);
+        var items = Data(await client.CallToolAsync("list_exercises", new Dictionary<string, object?> { ["search"] = "Pompes au mur" })).GetProperty("items");
+        Assert.Single(items.EnumerateArray());
+        server.Services.GetRequiredService<IConfiguration>()["MCP_READ_ONLY"] = "true";
+        Assert.True((await client.CallToolAsync("create_exercise", new Dictionary<string, object?> { ["input"] = input with { Id = "read_only_denied" } })).IsError);
     }
 
     [Fact] public async Task Mcp_Rejects_Anonymous_Wrong_Mobile_And_Browser_Credentials()
