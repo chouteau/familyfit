@@ -12,6 +12,9 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.AspNetCore.DataProtection;
+using System.Security.Claims;
+using System.Text.Json;
+using FamilyFit.Contracts.Models.Authentication;
 
 namespace FamilyFit.Tests;
 
@@ -24,10 +27,11 @@ public sealed class FamilyServer : WebApplicationFactory<Program>
 {
     public string DirectoryPath { get; } = Path.Combine(Path.GetTempPath(), "FamilyFit.Tests", Guid.NewGuid().ToString("N"));
     public TestClock Clock { get; } = new();
+    public string McpKey { get; } = Convert.ToHexString(System.Security.Cryptography.RandomNumberGenerator.GetBytes(32)).ToLowerInvariant();
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment("Testing");
-        builder.ConfigureAppConfiguration((_, config) => config.AddInMemoryCollection(new Dictionary<string, string?> { ["FamilyFit:DataDirectory"] = DirectoryPath, ["FamilyFit:Demo"] = "false", ["OpenAI:ApiKey"] = "" }));
+        builder.ConfigureAppConfiguration((_, config) => config.AddInMemoryCollection(new Dictionary<string, string?> { ["FamilyFit:DataDirectory"] = DirectoryPath, ["FamilyFit:Demo"] = "false", ["FamilyFit:PublicUrl"] = "https://localhost", ["MCP_API_KEY"] = McpKey, ["FAMILYFIT_BOOTSTRAP_CODE"] = "" }));
         builder.ConfigureServices(services => { services.RemoveAll<TimeProvider>(); services.AddSingleton<TimeProvider>(Clock); services.AddDataProtection().PersistKeysToFileSystem(new DirectoryInfo(Path.Combine(DirectoryPath, "keys"))); });
     }
     public HttpClient Browser() { var client = CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false, BaseAddress = new Uri("https://localhost") }); client.DefaultRequestHeaders.Add("X-FamilyFit-Request", "1"); return client; }
@@ -52,6 +56,31 @@ public sealed class FamilyServer : WebApplicationFactory<Program>
         var grant = (await response.Content.ReadFromJsonAsync<DeviceGrant>())!;
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", grant.Token);
         return (client, grant);
+    }
+    public async Task<MemberLoginLinkCreated> LoginLink(Member member)
+    {
+        await using var scope = Services.CreateAsyncScope();
+        return await scope.ServiceProvider.GetRequiredService<AuthService>().CreateMemberLoginLinkAsync(member.Id);
+    }
+    public static string LinkSecret(MemberLoginLinkCreated link) => Uri.UnescapeDataString(new Uri(link.Url).Fragment["#secret=".Length..]);
+    public async Task<JsonElement> Challenge(HttpClient browser, Member member)
+    {
+        var link = await LoginLink(member);
+        var response = await browser.PostAsJsonAsync("/api/v1/auth/browser/challenges", new BrowserChallengeInput(LinkSecret(link)));
+        Assert.Equal(System.Net.HttpStatusCode.OK, response.StatusCode);
+        return await response.Content.ReadFromJsonAsync<JsonElement>();
+    }
+    public async Task<ClaimsPrincipal> ApprovedBrowserPrincipal(Member member)
+    {
+        var (phone, grant) = await Phone(member); using var browser = Browser();
+        var challenge = await Challenge(browser, member);
+        Assert.True((await phone.PostAsJsonAsync("/api/v1/auth/browser/approve", new ApproveRequest(challenge.GetProperty("code").GetString()!))).IsSuccessStatusCode);
+        Assert.True((await browser.PostAsync("/api/v1/auth/browser/consume", null)).IsSuccessStatusCode);
+        await using var scope = Services.CreateAsyncScope();
+        await using var db = await scope.ServiceProvider.GetRequiredService<IDbContextFactory<FamilyDb>>().CreateDbContextAsync();
+        var session = await db.BrowserSessions.SingleAsync(x => x.DeviceId == grant.DeviceId);
+        phone.Dispose();
+        return AuthService.Principal(member, grant.DeviceId, session.Id);
     }
     public async Task<(Location Location, WorkoutProgram Program)> Plan(HttpClient admin, Member member, bool publish = true)
     {

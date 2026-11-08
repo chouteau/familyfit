@@ -8,10 +8,11 @@ using FamilyFit.Core.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.Configuration;
+using FamilyFit.Contracts.Models.Authentication;
 
 namespace FamilyFit.Core.Services;
 
-public sealed class AuthService(IDbContextFactory<FamilyDb> factory, TimeProvider clock, IConfiguration configuration)
+public sealed class AuthService(IDbContextFactory<FamilyDb> factory, TimeProvider clock, IConfiguration configuration, AgentAuthorization agents)
 {
     public DateTimeOffset Now => clock.GetUtcNow();
     public static string Hash(string text) => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(text)));
@@ -69,24 +70,59 @@ public sealed class AuthService(IDbContextFactory<FamilyDb> factory, TimeProvide
         return new(token, device.Id, member);
     }
 
-    public async Task<(ChallengeGrant Grant, string BrowserSecret)> CreateChallengeAsync(CancellationToken ct = default)
+    public async Task<MemberLoginLinkCreated> CreateMemberLoginLinkAsync(Guid memberId, CancellationToken ct = default)
     {
-        var code = Code();
-        var secret = Secret();
         await using var db = await factory.CreateDbContextAsync(ct);
-        // Remove old short-lived challenges; no secrets are logged or returned in the QR.
-        await db.LoginChallenges.Where(x => x.ExpiresAtUtc < Now.AddDays(-1)).ExecuteDeleteAsync(ct);
-        var challenge = new LoginChallenge { CodeHash = Hash(code), BrowserSecretHash = Hash(secret), ExpiresAtUtc = Now.AddMinutes(5) };
+        var member = await db.Members.AsNoTracking().SingleOrDefaultAsync(x => x.Id == memberId, ct) ?? throw new DomainException("Membre introuvable.", 404);
+        var token = "ffb_" + Secret();
+        var link = new MemberLoginLink { MemberId = member.Id, TokenHash = Hash(token), ExpiresAtUtc = Now.AddMinutes(5) };
+        db.MemberLoginLinks.Add(link); await db.SaveChangesAsync(ct);
+        var url = (configuration["FamilyFit:PublicUrl"] ?? "https://fit.chouteau.info").TrimEnd('/') + "/login#secret=" + Uri.EscapeDataString(token);
+        return new(member.Id, member.Nickname, url, link.ExpiresAtUtc);
+    }
+
+    public async Task<MemberLoginPreview?> PreviewMemberLoginLinkAsync(string? token, string? browserSecret, CancellationToken ct = default)
+    {
+        if (token?.Length != 47 || !token.StartsWith("ffb_", StringComparison.Ordinal)) return null;
+        await using var db = await factory.CreateDbContextAsync(ct);
+        var hash = Hash(token);
+        var link = await db.MemberLoginLinks.AsNoTracking().SingleOrDefaultAsync(x => x.TokenHash == hash, ct);
+        if (link == null || link.UsedAtUtc != null || link.ExpiresAtUtc <= Now || (link.BrowserSecretHash != null && (browserSecret == null || link.BrowserSecretHash != Hash(browserSecret)))) return null;
+        var member = await db.Members.AsNoTracking().SingleOrDefaultAsync(x => x.Id == link.MemberId, ct);
+        return member == null ? null : new(member.Id, member.Nickname, link.ExpiresAtUtc);
+    }
+
+    public async Task<(ChallengeGrant Grant, string BrowserSecret)> CreateChallengeAsync(string linkToken, string? browserSecret = null, CancellationToken ct = default)
+    {
+        if (linkToken?.Length != 47 || !linkToken.StartsWith("ffb_", StringComparison.Ordinal)) throw new DomainException("Lien non accessible.", 404);
+        var code = Code();
+        var secret = browserSecret?.Length == 43 ? browserSecret : Secret();
+        await using var db = await factory.CreateDbContextAsync(ct);
+        await using var tx = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct);
+        var hash = Hash(linkToken);
+        var link = await db.MemberLoginLinks.SingleOrDefaultAsync(x => x.TokenHash == hash, ct);
+        if (link == null || link.UsedAtUtc != null || link.ExpiresAtUtc <= Now) throw new DomainException("Lien non accessible.", 404);
+        if (link.BrowserSecretHash != null && link.BrowserSecretHash != Hash(secret)) throw new DomainException("Ce lien est déjà utilisé dans un autre navigateur.", 403);
+        link.BrowserSecretHash ??= Hash(secret);
+        var now = Now;
+        await db.LoginChallenges.Where(x => x.MemberLoginLinkId == link.Id && x.UsedAtUtc == null).ExecuteUpdateAsync(s => s.SetProperty(x => x.UsedAtUtc, now), ct);
+        var challenge = new LoginChallenge { ExpectedMemberId = link.MemberId, MemberLoginLinkId = link.Id, CodeHash = Hash(code), BrowserSecretHash = Hash(secret), ExpiresAtUtc = link.ExpiresAtUtc };
         db.LoginChallenges.Add(challenge);
         await db.SaveChangesAsync(ct);
+        await tx.CommitAsync(ct);
         return (new(challenge.Id, code, Qr("login", code), challenge.ExpiresAtUtc), secret);
     }
 
     public async Task ApproveAsync(Actor actor, string code, CancellationToken ct = default)
     {
-        if (actor.SessionId != null) throw new DomainException("Confirme la connexion depuis ton application mobile.", 403);
+        if (actor.SessionId != null || actor.AgentId != null) throw new DomainException("Confirme la connexion depuis ton application mobile.", 403);
         var hash = Hash(NormalizeCode(code));
         await using var db = await factory.CreateDbContextAsync(ct);
+        var target = await db.LoginChallenges.AsNoTracking().SingleOrDefaultAsync(x => x.CodeHash == hash, ct);
+        if (target == null || target.MemberLoginLinkId == null) throw new DomainException("Demande expirée ou inaccessible.");
+        if (target.ExpectedMemberId != actor.MemberId) throw new DomainException("Ce lien est réservé à un autre membre. Utilise le téléphone associé au pseudo affiché.", 403);
+        var link = await db.MemberLoginLinks.AsNoTracking().SingleOrDefaultAsync(x => x.Id == target.MemberLoginLinkId, ct);
+        if (link == null || link.UsedAtUtc != null || link.ExpiresAtUtc <= Now) throw new DomainException("Le lien a expiré. Demande un nouveau lien à l’administrateur.");
         var affected = await db.LoginChallenges.Where(x => x.CodeHash == hash && x.ExpiresAtUtc > Now && x.UsedAtUtc == null && x.ApprovedDeviceId == null)
             .ExecuteUpdateAsync(s => s.SetProperty(x => x.ApprovedDeviceId, actor.DeviceId), ct);
         if (affected != 1) throw new DomainException("Demande expirée ou déjà confirmée. Actualise la page du site.");
@@ -100,12 +136,17 @@ public sealed class AuthService(IDbContextFactory<FamilyDb> factory, TimeProvide
         if (item is null || !CryptographicOperations.FixedTimeEquals(Encoding.ASCII.GetBytes(item.BrowserSecretHash), Encoding.ASCII.GetBytes(Hash(browserSecret))))
             throw new DomainException("Cette demande appartient à un autre navigateur.", 403);
         if (item.UsedAtUtc != null || item.ExpiresAtUtc <= Now) return ("expired", null);
+        if (item.MemberLoginLinkId == null) return ("expired", null);
+        var link = await db.MemberLoginLinks.SingleOrDefaultAsync(x => x.Id == item.MemberLoginLinkId, ct);
+        if (link == null || link.UsedAtUtc != null || link.ExpiresAtUtc <= Now) return ("expired", null);
         if (item.ApprovedDeviceId == null) return ("pending", null);
         var device = await db.Devices.SingleOrDefaultAsync(x => x.Id == item.ApprovedDeviceId && x.RevokedAtUtc == null, ct);
         if (device == null) return ("expired", null);
+        if (device.MemberId != link.MemberId || device.MemberId != item.ExpectedMemberId) return ("expired", null);
         var session = new BrowserSession { MemberId = device.MemberId, DeviceId = device.Id, ExpiresAtUtc = Now.AddHours(12) };
         db.BrowserSessions.Add(session);
         item.UsedAtUtc = Now;
+        link.UsedAtUtc = Now;
         await db.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);
         return ("approved", session);
@@ -130,8 +171,15 @@ public sealed class AuthService(IDbContextFactory<FamilyDb> factory, TimeProvide
         return new(new ClaimsIdentity(claims, sessionId == null ? "Device" : "Cookies"));
     }
 
+    public static ClaimsPrincipal BootstrapPrincipal(Member member, Guid sessionId) => new(new ClaimsIdentity([
+        new(ClaimTypes.NameIdentifier, member.Id.ToString()), new(ClaimTypes.Name, member.Nickname),
+        new(ClaimTypes.Role, "Admin"), new("method", "browser"), new("bootstrap-session", sessionId.ToString())
+    ], "Cookies"));
+
     public async Task<Actor> RequireActorAsync(ClaimsPrincipal user, bool admin = false, CancellationToken ct = default)
     {
+        if (user.FindFirstValue("method") == "agent") return await agents.RequireActorAsync(user, admin, ct);
+        if (user.HasClaim(x => x.Type == "bootstrap-session")) return await RequireBootstrapActorAsync(user, ct);
         if (user.Identity?.IsAuthenticated != true || !Guid.TryParse(user.FindFirstValue(ClaimTypes.NameIdentifier), out var memberId) || !Guid.TryParse(user.FindFirstValue("device"), out var deviceId))
             throw new DomainException("Reconnecte-toi avec ton application mobile.", 401);
         await using var db = await factory.CreateDbContextAsync(ct);
@@ -147,6 +195,17 @@ public sealed class AuthService(IDbContextFactory<FamilyDb> factory, TimeProvide
         var member = await db.Members.AsNoTracking().SingleAsync(x => x.Id == memberId, ct);
         if (admin && !member.IsAdmin) throw new DomainException("Cette action est réservée à l’administrateur familial.", 403);
         return new(memberId, member.IsAdmin, deviceId, sessionId);
+    }
+
+    private async Task<Actor> RequireBootstrapActorAsync(ClaimsPrincipal user, CancellationToken ct)
+    {
+        if (user.Identity?.IsAuthenticated != true || user.FindFirstValue("method") != "browser" ||
+            !Guid.TryParse(user.FindFirstValue(ClaimTypes.NameIdentifier), out var memberId) || !Guid.TryParse(user.FindFirstValue("bootstrap-session"), out var sessionId))
+            throw new DomainException("Session initiale non autorisée.", 401);
+        await using var db = await factory.CreateDbContextAsync(ct);
+        var valid = await db.BrowserSessions.AsNoTracking().AnyAsync(x => x.Id == sessionId && x.MemberId == memberId && x.DeviceId == null && x.RevokedAtUtc == null && x.ExpiresAtUtc > Now, ct);
+        if (!valid || !await db.Members.AsNoTracking().AnyAsync(x => x.Id == memberId && x.IsAdmin, ct)) throw new DomainException("Ta session a expiré. Demande un lien personnel.", 401);
+        return new(memberId, true, Guid.Empty, sessionId);
     }
 
     public async Task RevokeAsync(Actor actor, Guid deviceId, CancellationToken ct = default)

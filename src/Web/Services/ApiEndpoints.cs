@@ -22,12 +22,22 @@ public static class ApiEndpoints
     public static void MapFamilyApi(this WebApplication app)
     {
         var api = app.MapGroup("/api/v1");
-        api.MapPost("/auth/enroll", async (EnrollRequest input, IMediator mediator, CancellationToken ct) => Http(await mediator.EnrollDevice(input, ct))).Produces<DeviceGrant>().RequireRateLimiting("pairing");
-        api.MapPost("/auth/invitations/preview", async (ApproveRequest input, IMediator mediator, CancellationToken ct) => Http(await mediator.PreviewInvitation(input.Code, ct))).RequireRateLimiting("pairing");
-        api.MapPost("/auth/browser/challenges", async (HttpContext context, IMediator mediator, CancellationToken ct) =>
+        api.MapPost("/auth/bootstrap", async (BootstrapInput input, HttpContext context, IMediator mediator, CancellationToken ct) =>
         {
             if (!SameOrigin(context)) return Results.StatusCode(403);
-            var result = await mediator.CreateBrowserChallenge(ct);
+            var result = await mediator.CompleteBootstrap(input, ct);
+            if (!result.Success) return Http(result);
+            var grant = result.Value!;
+            await context.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, AuthService.BootstrapPrincipal(grant.Member, grant.Session.Id), new AuthenticationProperties { ExpiresUtc = grant.Session.ExpiresAtUtc, IsPersistent = false });
+            return Results.Ok(new { state = "approved" });
+        }).RequireRateLimiting("bootstrap");
+        api.MapPost("/auth/enroll", async (EnrollRequest input, IMediator mediator, CancellationToken ct) => Http(await mediator.EnrollDevice(input, ct))).Produces<DeviceGrant>().RequireRateLimiting("pairing");
+        api.MapPost("/auth/invitations/preview", async (ApproveRequest input, IMediator mediator, CancellationToken ct) => Http(await mediator.PreviewInvitation(input.Code, ct))).RequireRateLimiting("pairing");
+        api.MapPost("/auth/browser/challenges", async (BrowserChallengeInput input, HttpContext context, IMediator mediator, CancellationToken ct) =>
+        {
+            if (!SameOrigin(context)) return Results.StatusCode(403);
+            var cookie = context.Request.Cookies["FamilyFit.Challenge"]?.Split(':', 2);
+            var result = await mediator.CreateBrowserChallenge(input.LinkSecret, cookie?.Length == 2 ? cookie[1] : null, ct);
             if (!result.Success) return Http(result);
             var value = result.Value!;
             context.Response.Cookies.Append("FamilyFit.Challenge", $"{value.Grant.Id}:{value.BrowserSecret}", ChallengeCookie(context));
@@ -43,7 +53,7 @@ public static class ApiEndpoints
             if (!result.Success) return Http(result);
             if (result.Value!.Session is { } session)
             {
-                await context.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, AuthService.Principal(result.Value.Member!, session.DeviceId, session.Id), new AuthenticationProperties { ExpiresUtc = session.ExpiresAtUtc, IsPersistent = false });
+                await context.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, AuthService.Principal(result.Value.Member!, session.DeviceId!.Value, session.Id), new AuthenticationProperties { ExpiresUtc = session.ExpiresAtUtc, IsPersistent = false });
                 context.Response.Cookies.Delete("FamilyFit.Challenge");
             }
             return Results.Ok(new { state = result.Value.State });
@@ -70,7 +80,6 @@ public static class ApiEndpoints
         api.MapPost("/programs", async (ProgramInput input, HttpContext c, IMediator m, CancellationToken ct) => Http(await m.SaveProgram(c.User, null, input, ct))).RequireAuthorization("DeviceOnly");
         api.MapPut("/programs/{id:guid}", async (Guid id, ProgramInput input, HttpContext c, IMediator m, CancellationToken ct) => Http(await m.SaveProgram(c.User, id, input, ct))).RequireAuthorization("DeviceOnly");
         api.MapPost("/programs/{id:guid}/publish", async (Guid id, HttpContext c, IMediator m, CancellationToken ct) => Http(await m.PublishProgram(c.User, id, ct))).RequireAuthorization("DeviceOnly");
-        api.MapPost("/programs/generate", async (GenerateInput input, HttpContext c, IMediator m, CancellationToken ct) => Http(await m.GenerateProgram(c.User, input, ct))).RequireAuthorization("DeviceOnly").RequireRateLimiting("pairing");
         api.MapGet("/devices", async (HttpContext c, IMediator m, CancellationToken ct) => Http(await m.GetDevices(c.User, ct))).RequireAuthorization();
         api.MapPost("/devices/{id:guid}/revoke", async (Guid id, HttpContext c, IMediator m, CancellationToken ct) => Http(await m.RevokeDevice(c.User, id, ct))).RequireAuthorization("DeviceOnly");
         app.MapGet("/media/{file}", (string file, IWebHostEnvironment environment) =>

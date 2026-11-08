@@ -13,7 +13,7 @@ public static class OperatorCommands
 {
     public static async Task<bool> TryRunAsync(string[] args, IServiceProvider services, IWebHostEnvironment environment)
     {
-        if (!args.Contains("--bootstrap") && !args.Contains("--recover") && !args.Contains("--backup")) return false;
+        if (!args.Contains("--bootstrap") && !args.Contains("--recover") && !args.Contains("--backup") && !args.Contains("--login-link")) return false;
         var configuration = services.GetRequiredService<IConfiguration>();
         if (configuration.GetValue<bool>("FamilyFit:Demo")) throw new InvalidOperationException("Les commandes d’exploitation ne s’exécutent pas sur la démonstration.");
         var data = configuration["FamilyFit:DataDirectory"]!;
@@ -34,6 +34,23 @@ public static class OperatorCommands
             source.BackupDatabase(destination);
             Restrict(target);
             Console.WriteLine($"Sauvegarde SQLite créée : {target}");
+            return true;
+        }
+        if (args.Contains("--login-link"))
+        {
+            var memberId = Guid.TryParse(Option("--member-id"), out var parsedId) ? parsedId : (Guid?)null;
+            var nickname = Option("--nickname");
+            var candidates = await db.Members.AsNoTracking().Where(x => memberId != null ? x.Id == memberId : x.Nickname == nickname).Take(2).ToListAsync();
+            if (candidates.Count != 1) throw new InvalidOperationException("Indique --member-id avec un identifiant exact ou --nickname avec un pseudo unique.");
+            var link = await services.GetRequiredService<AuthService>().CreateMemberLoginLinkAsync(candidates[0].Id);
+            var directory = Path.Combine(data, "private"); Directory.CreateDirectory(directory);
+            if (!OperatingSystem.IsWindows()) File.SetUnixFileMode(directory, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+            var file = Path.Combine(directory, $"login-{Guid.NewGuid():N}.html");
+            var url = System.Net.WebUtility.HtmlEncode(link.Url);
+            var name = System.Net.WebUtility.HtmlEncode(link.Nickname);
+            await File.WriteAllTextAsync(file, $"<!doctype html><html lang=\"fr\"><meta charset=\"utf-8\"><meta name=\"referrer\" content=\"no-referrer\"><title>Connexion FamilyFit</title><h1>Connexion de {name}</h1><p>Lien privé valable cinq minutes, à confirmer depuis le téléphone de ce membre.</p><a href=\"{url}\">Ouvrir FamilyFit</a></html>");
+            Restrict(file);
+            Console.WriteLine($"Lien créé dans le fichier privé : {file}. Récupère-le localement ; supprime la copie après usage.");
             return true;
         }
         var admin = await db.Members.FirstOrDefaultAsync(x => x.IsAdmin);

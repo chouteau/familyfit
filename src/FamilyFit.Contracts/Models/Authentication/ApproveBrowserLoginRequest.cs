@@ -4,4 +4,4 @@ using FamilyFit.Contracts.Models;
 
 namespace FamilyFit.Contracts.Models.Authentication;
 
-public sealed record ApproveBrowserLoginRequest(ClaimsPrincipal User, string Code) : IRequest<Outcome<bool>>, IAuthorizedRequest { public bool AdminOnly => false; }
+public sealed record ApproveBrowserLoginRequest(ClaimsPrincipal User, string Code) : IRequest<Outcome<bool>>, IAuthorizedRequest, IHumanOnlyRequest { public bool AdminOnly => false; }

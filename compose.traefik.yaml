@@ -12,8 +12,9 @@ services:
       FamilyFit__DataDirectory: /data
       # Exact IP of Traefik on the shared Docker network.
       ReverseProxy__KnownProxies__0: ${TRAEFIK_PROXY_IP:?Set the Traefik IP on the shared network}
-      OpenAI__ApiKey: ${OPENAI_API_KEY:-}
-      OpenAI__Model: ${OPENAI_MODEL:-gpt-4.1-mini}
+      FAMILYFIT_BOOTSTRAP_CODE: ${FAMILYFIT_BOOTSTRAP_CODE:-}
+      MCP_API_KEY: ${MCP_API_KEY:-}
+      MCP_READ_ONLY: ${MCP_READ_ONLY:-false}
     volumes:
       - familyfit-data:/data
     expose:

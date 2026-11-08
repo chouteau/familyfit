@@ -1,0 +1,32 @@
+@inject IJSRuntime JS
+<PageTitle>Première connexion · FamilyFit</PageTitle>
+<main class="login-page"><a class="brand login-brand" href="/"><img src="assets/mascot.png" alt="" /><span>Family<span class="brand-fit">Fit</span></span></a>
+    <section class="login-panel panel"><div class="login-intro"><span class="large-icon"><Icon Name="shield" Size="34" /></span><h1>Bienvenue dans la famille.</h1><p>Saisis le code d’initialisation pour ouvrir la première session administrateur.</p></div>
+    <EditForm Model="_form" OnValidSubmit="Connect" FormName="admin-bootstrap"><DataAnnotationsValidator />
+        <div class="form-grid bootstrap-fields">
+            <label class="span-two">Code d’initialisation<InputText type="password" @bind-Value="_form.Code" autocomplete="off" spellcheck="false" aria-describedby="bootstrap-error" /><ValidationMessage For="() => _form.Code" /></label>
+            @if (NeedsProfile)
+            {
+                <label class="span-two">Ton pseudo<InputText @bind-Value="_form.Nickname" autocomplete="nickname" /><ValidationMessage For="() => _form.Nickname" /></label>
+                <label>Âge<InputNumber @bind-Value="_form.Age" /><ValidationMessage For="() => _form.Age" /></label>
+                <label>Poids (kg)<InputNumber @bind-Value="_form.WeightKg" step="0.1" /><ValidationMessage For="() => _form.WeightKg" /></label>
+            }
+        </div>
+        <p id="bootstrap-error" role="alert" class="validation-message">@_error</p>
+        <button class="button primary" type="submit" disabled="@_busy">@(_busy ? "Connexion en cours…" : "Ouvrir mon espace")</button>
+    </EditForm><p class="invitation-note">Ce code sert une seule fois. Tu pourras ensuite activer ton téléphone et créer les liens de connexion de la famille.</p></section>
+</main>
+@code {
+    [Parameter] public bool NeedsProfile { get; set; }
+    private readonly BootstrapForm _form = new();
+    private bool _busy;
+    private string? _error;
+    protected override void OnInitialized() { if (!NeedsProfile) _form.Nickname = "Administrateur"; }
+    private async Task Connect()
+    {
+        if (_busy) return;
+        _busy = true; _error = null;
+        try { _error = await JS.InvokeAsync<string?>("familyFit.completeBootstrap", _form.Input()); }
+        finally { _busy = false; }
+    }
+}

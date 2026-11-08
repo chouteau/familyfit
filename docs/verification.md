@@ -1,5 +1,20 @@
 # Validation du 8 novembre 2026
 
+## Extension MCP et liens web personnels
+
+Validation finale : compilation sans avertissement et 44 tests réussis. Le parcours initial complet a été exercé dans Chromium sur desktop/mobile (formulaire, code incorrect, session administrateur, retour du public à une page vide). Dans le conteneur Linux de production, le cookie Secure, la consommation du code conservée après redémarrage et l’absence de code dans les logs sont vérifiés. Les 18 outils MCP sont découverts par HTTP authentifié et l’identité administrateur est confirmée. Les revues technique, visuelle et documentaire sont terminées ; aucune correction matérielle restante signalée.
+
+- **44 tests d’intégration réussis** sur SQLite isolé. Client MCP officiel vérifié en HTTP avec les protocoles `2025-11-25` et `2026-07-28`, découverte des 18 outils, schémas sans identité choisie par le client, rotation/désactivation de clé, mode lecture seule, droits métier, publication et résultats idempotents.
+- Première connexion : code d’environnement absent/incorrect, profil invalide, création ou réutilisation de l’administrateur, cookie sans faux téléphone, invitation et lien web depuis cette session, déconnexion, usage unique après changement de variable, installation déjà utilisée, concurrence et limitation des tentatives vérifiés. Les autorisations mobiles restent séparées.
+- Liens web : expiration cinq minutes après création, page publique vide, correspondance du membre du téléphone, liaison au navigateur, consommation unique, renouvellement sans prolongation et génération réservée à la session web administrateur. Le secret est retiré de l’URL après lecture ; `Referrer-Policy: no-referrer`.
+- Parcours Chromium vérifiés sur données fictives locales : création/copie du lien, page personnelle « Bonjour Emma », chargement depuis un onglet déjà vide, retrait du bloc IA et composition manuelle conservée. Captures à 1729 px et 390 px, sans débordement horizontal ni erreur JavaScript. Revue de finition indépendante : disposition `ship`, sans correctif matériel demandé.
+- Image de production reconstruite et démarrée sans privilèges, en lecture seule avec volume SQLite distinct : santé, refus de l’API anonyme, page de connexion sans QR public et commandes `--bootstrap`/`--login-link` vérifiées. Les trois variantes Compose passent `config --quiet`. Audit NuGet incluant les dépendances transitives du nouveau SDK MCP : aucune vulnérabilité connue signalée.
+- Revue technique indépendante : aucun défaut bloquant identifié ; message de permission obsolète corrigé. Les captures, clés aléatoires de test, bases et rapports locaux restent exclus de Git.
+
+Cette extension ne modifie pas les clients mobiles et n’a pas été déployée sur le VPS. La confirmation par téléphone physique et le passage MCP à travers le Traefik réel restent à vérifier après livraison.
+
+Les sections suivantes décrivent la validation initiale, antérieure à cette extension. Les PR n° 1 et n° 2 ont depuis été fusionnées et l’image publiée depuis `main` ; leurs états historiques ci-dessous ne décrivent pas la livraison de cette extension.
+
 ## Contrôles exécutés
 
 | Périmètre | Résultat |
@@ -40,5 +55,5 @@ Rapports bruts locaux exclus de Git : `src/Android/output/security/trivy-final.j
 
 - Signature Ad Hoc et essais sur iPhone 13 ou plus récent, notamment hors ligne et après fermeture forcée. La compilation et les XCTest ont été réalisés sur le Mac du runner GitHub ; l’accès SSH au Mac personnel reste à autoriser et l’équipe Apple Developer reste à configurer pour la distribution.
 - Tests Android instrumentés et parcours caméra, voix, mode avion, fermeture forcée/reprise sur un appareil ou émulateur. Aucun appareil n’était connecté lors de la validation.
-- Appel réel au service de génération IA : non exécuté sans clé configurée. Le fonctionnement manuel reste disponible et a été vérifié.
+- Génération IA intégrée : supprimée dans l’extension MCP ; aucune clé OpenAI n’est requise côté serveur.
 - Déploiement sur le VPS, DNS/certificat de `fit.chouteau.info`, passage par le reverse proxy, distribution mobile et exercice de restauration sur l’installation réelle. Aucun déploiement externe n’a été effectué.

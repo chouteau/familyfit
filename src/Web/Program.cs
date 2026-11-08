@@ -14,6 +14,8 @@ using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
+using FamilyFit.Web.Mcp;
+using ModelContextProtocol.AspNetCore;
 
 if (args.Contains("--healthcheck"))
 {
@@ -38,17 +40,23 @@ builder.Services.AddDbContextFactory<FamilyDb>((services, options) =>
 });
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton<FamilyUpdates>();
-builder.Services.AddSingleton<AiProgramService>();
-builder.Services.AddHttpClient("OpenAI", client => { client.Timeout = TimeSpan.FromSeconds(75); client.MaxResponseContentBufferSize = 2 * 1024 * 1024; });
+builder.Services.AddScoped<AgentAuthorization>();
+builder.Services.AddScoped<AgentToolRunner>();
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddMcpServer(options => options.ServerInstructions = FamilyReadTools.Instructions)
+    .WithHttpTransport(options => options.SessionMode = HttpServerSessionMode.Stateless)
+    .WithTools<FamilyReadTools>().WithTools<FamilyWriteTools>();
 builder.Services.AddScoped<AuthService>();
+builder.Services.AddScoped<BootstrapService>();
 builder.Services.AddChannelMediator(assemblies: [typeof(GetDashboardRequestHandler).Assembly]);
 builder.Services.AddRazorComponents().AddInteractiveServerComponents();
 builder.Services.AddCascadingAuthenticationState();
 builder.Services.AddScoped<AuthenticationStateProvider, FamilyAuthenticationStateProvider>();
 builder.Services.AddDataProtection().PersistKeysToFileSystem(new DirectoryInfo(Path.Combine(dataDirectory, "keys"))).SetApplicationName("FamilyFit");
 builder.Services.AddAuthentication(options => { options.DefaultScheme = "FamilyFit"; options.DefaultChallengeScheme = "FamilyFit"; })
-    .AddPolicyScheme("FamilyFit", null, options => options.ForwardDefaultSelector = context => context.Request.Headers.Authorization.ToString().StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase) ? "Device" : CookieAuthenticationDefaults.AuthenticationScheme)
+    .AddPolicyScheme("FamilyFit", null, options => options.ForwardDefaultSelector = context => context.Request.Path.StartsWithSegments("/mcp") ? "Agent" : context.Request.Headers.Authorization.ToString().StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase) ? "Device" : CookieAuthenticationDefaults.AuthenticationScheme)
     .AddScheme<AuthenticationSchemeOptions, DeviceAuthenticationHandler>("Device", null)
+    .AddScheme<AuthenticationSchemeOptions, AgentAuthenticationHandler>("Agent", null)
     .AddCookie(options =>
     {
         options.Cookie.Name = "FamilyFit.Session"; options.Cookie.HttpOnly = true; options.Cookie.SameSite = SameSiteMode.Lax;
@@ -61,7 +69,11 @@ builder.Services.AddAuthentication(options => { options.DefaultScheme = "FamilyF
         };
         options.Events.OnRedirectToLogin = context => { if (context.Request.Path.StartsWithSegments("/api") || context.Request.Path.StartsWithSegments("/media")) context.Response.StatusCode = 401; else context.Response.Redirect(context.RedirectUri); return Task.CompletedTask; };
     });
-builder.Services.AddAuthorization(options => options.AddPolicy("DeviceOnly", policy => policy.AddAuthenticationSchemes("Device").RequireAuthenticatedUser().RequireClaim("method", "device")));
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy("DeviceOnly", policy => policy.AddAuthenticationSchemes("Device").RequireAuthenticatedUser().RequireClaim("method", "device"));
+    options.AddPolicy("AgentOnly", policy => policy.AddAuthenticationSchemes("Agent").RequireAuthenticatedUser().RequireClaim("method", "agent"));
+});
 builder.Services.AddOpenApi();
 builder.Services.AddHealthChecks().AddCheck<DatabaseHealthCheck>("sqlite");
 builder.Services.Configure<ForwardedHeadersOptions>(options =>
@@ -73,6 +85,8 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = 429;
+    options.AddPolicy("bootstrap", context => RateLimitPartition.GetFixedWindowLimiter(context.Connection.RemoteIpAddress?.ToString() ?? "unknown", _ => new FixedWindowRateLimiterOptions { PermitLimit = 5, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
+    options.AddPolicy("mcp", context => RateLimitPartition.GetFixedWindowLimiter(context.Connection.RemoteIpAddress?.ToString() ?? "unknown", _ => new FixedWindowRateLimiterOptions { PermitLimit = 240, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
     options.AddPolicy("pairing", context => RateLimitPartition.GetFixedWindowLimiter(context.Connection.RemoteIpAddress?.ToString() ?? "unknown", _ => new FixedWindowRateLimiterOptions { PermitLimit = 30, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
     options.AddPolicy("polling", context => RateLimitPartition.GetFixedWindowLimiter(context.Connection.RemoteIpAddress?.ToString() ?? "unknown", _ => new FixedWindowRateLimiterOptions { PermitLimit = 120, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
 });
@@ -83,9 +97,14 @@ if (!app.Environment.IsDevelopment()) { app.UseExceptionHandler("/error", create
 app.Use(async (context, next) =>
 {
     context.Response.Headers["X-Content-Type-Options"] = "nosniff";
-    context.Response.Headers["Referrer-Policy"] = "same-origin";
+    context.Response.Headers["Referrer-Policy"] = "no-referrer";
     context.Response.Headers["X-Frame-Options"] = "DENY";
-    if (context.Request.Path.StartsWithSegments("/api") || context.Request.Path.StartsWithSegments("/media") || context.Request.Path == "/login") context.Response.Headers.CacheControl = "no-store";
+    if (context.Request.Path.StartsWithSegments("/api") || context.Request.Path.StartsWithSegments("/media") || context.Request.Path.StartsWithSegments("/mcp") || context.Request.Path == "/login") context.Response.Headers.CacheControl = "no-store";
+    if (context.Request.Path.StartsWithSegments("/mcp") && context.Request.Headers.Origin.Count > 0)
+    {
+        var configured = new Uri(builder.Configuration["FamilyFit:PublicUrl"] ?? "https://fit.chouteau.info").GetLeftPart(UriPartial.Authority);
+        if (!string.Equals(context.Request.Headers.Origin.ToString(), configured, StringComparison.OrdinalIgnoreCase)) { context.Response.StatusCode = 403; return; }
+    }
     try { await next(); }
     catch (DomainException ex) when (!context.Response.HasStarted) { await Results.Problem(detail: ex.Message, statusCode: ex.Status).ExecuteAsync(context); }
 });
@@ -94,6 +113,7 @@ app.UseAuthentication(); app.UseAuthorization(); app.UseAntiforgery();
 app.MapStaticAssets();
 app.MapHealthChecks("/health");
 app.MapFamilyApi();
+app.MapMcp("/mcp").RequireAuthorization("AgentOnly").RequireRateLimiting("mcp");
 app.MapRazorComponents<App>().AddInteractiveServerRenderMode();
 app.MapOpenApi().RequireAuthorization();
 

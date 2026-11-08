@@ -18,3 +18,4 @@ public interface IChangesFamily;
 public sealed record BrowserChallengeWithSecret(ChallengeGrant Grant, string BrowserSecret);
 public sealed record BrowserLoginResult(string State, Models.BrowserSession? Session, Models.Member? Member = null);
 public sealed record InvitationPreview(Guid MemberId, string Nickname, DateTimeOffset ExpiresAtUtc);
+public interface IHumanOnlyRequest;

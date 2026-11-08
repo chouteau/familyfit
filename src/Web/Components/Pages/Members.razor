@@ -1,11 +1,16 @@
 @page "/membres"
 @attribute [Authorize]
 @inherits FamilyPage
+@inject IJSRuntime JS
 <PageTitle>Les membres · FamilyFit</PageTitle>
 <div class="page-heading"><div><h1>Une famille, plein d’énergies.</h1><p>Les objectifs et les progrès de chacun, au même endroit.</p></div>@if (Actor?.IsAdmin == true) { <button class="button primary" @onclick="NewMember"><Icon Name="plus" />Ajouter un membre</button> }</div>
 @if (Error != null) { <div class="notice error" role="alert">@Error</div> } @if (Message != null) { <div class="notice success" role="status">@Message</div> }
-<div class="management-grid">@foreach (var member in Data.Members) { <article class="panel profile-card"><div class="member-card-heading"><Avatar Member="member" /><div><h2>@member.Nickname</h2><span class="muted">@member.Age ans · @member.WeightKg.ToString("0.#", French) kg</span></div></div><p>@member.Goal</p><div class="equipment-tags"><span>@member.Level</span><span>@member.SessionMinutes min par séance</span></div><div class="card-actions">@if (Actor!.IsAdmin || member.Id == Actor.MemberId) { <button class="button secondary small" @onclick="() => EditMember(member)">Modifier le profil</button> }@if (Actor!.IsAdmin) { <button class="button small primary" @onclick="() => Invite(member)" disabled="@Busy"><Icon Name="qr" Size="17" />Inviter son mobile</button> }</div>
+<div class="management-grid">@foreach (var member in Data.Members) { <article class="panel profile-card"><div class="member-card-heading"><Avatar Member="member" /><div><h2>@member.Nickname</h2><span class="muted">@member.Age ans · @member.WeightKg.ToString("0.#", French) kg</span></div></div><p>@member.Goal</p><div class="equipment-tags"><span>@member.Level</span><span>@member.SessionMinutes min par séance</span></div><div class="card-actions">@if (Actor!.IsAdmin || member.Id == Actor.MemberId) { <button class="button secondary small" @onclick="() => EditMember(member)">Modifier le profil</button> }@if (Actor!.IsAdmin) { <button class="button small secondary" @onclick="() => CreateLoginLink(member)" disabled="@Busy"><Icon Name="phone" Size="17" />Créer un lien web</button><button class="button small primary" @onclick="() => Invite(member)" disabled="@Busy"><Icon Name="qr" Size="17" />Inviter son mobile</button> }</div>
     <details class="weight-history"><summary>Historique du poids</summary>@foreach (var weight in Data.Weights.Where(x => x.MemberId == member.Id).OrderByDescending(x => x.RecordedAtUtc).Take(12)) { <p><time>@TimeZoneInfo.ConvertTime(weight.RecordedAtUtc, FamilyCalendar.Paris).ToString("d MMM yyyy", French)</time><strong>@weight.WeightKg.ToString("0.#", French) kg</strong></p> }</details></article> }</div>
+@if (_loginLink != null)
+{
+    <section class="panel invitation-panel" @ref="_linkPanel"><div><h2>Lien web de @_loginLink.Nickname</h2><p>Valable cinq minutes, jusqu’à @TimeZoneInfo.ConvertTime(_loginLink.ExpiresAtUtc, FamilyCalendar.Paris).ToString("HH:mm", French). Seul son téléphone pourra confirmer la connexion.</p><code class="private-link-secret">@_loginLink.Url</code><div class="form-actions"><button class="button primary small" @onclick="CopyLoginLink">Copier le lien</button><button class="button secondary small" @onclick="() => _loginLink = null">Masquer le lien</button></div></div></section>
+}
 @if (_invitation != null)
 {
     <section class="panel invitation-panel"><div><h2>Invitation de @_invitedName</h2><p>À scanner dans l’application, ou saisir le code. Usage unique, valable dix minutes.</p><strong class="display-code">@_invitation.Code</strong><p class="muted">Expiration : @TimeZoneInfo.ConvertTime(_invitation.ExpiresAtUtc, FamilyCalendar.Paris).ToString("HH:mm", French)</p><button class="button secondary small" @onclick="() => _invitation = null">Masquer l’invitation</button></div><QrCode Payload="@_invitation.QrPayload" /></section>
@@ -25,6 +30,12 @@
     </EditForm></section>
 }
 @code {
+    private MemberLoginLinkCreated? _loginLink;
+    private ElementReference _linkPanel;
+    private bool _revealLink;
+    protected override async Task OnAfterRenderAsync(bool firstRender) { if (_revealLink) { _revealLink = false; await JS.InvokeVoidAsync("familyFit.revealElement", _linkPanel); } }
+    private async Task CreateLoginLink(Member member) { if (Busy) return; Busy = true; Message = null; try { var result = await Mediator.CreateMemberLoginLink(User, member.Id, Cancellation); Error = result.Error; _loginLink = result.Value; _revealLink = result.Success; _invitation = null; } finally { Busy = false; } }
+    private async Task CopyLoginLink() { if (_loginLink != null) Message = await JS.InvokeAsync<bool>("familyFit.copyText", _loginLink.Url) ? "Lien copié." : "Sélectionne le lien pour le copier."; }
     private MemberForm? _form;
     private InvitationGrant? _invitation;
     private string? _invitedName;
